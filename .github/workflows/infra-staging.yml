@@ -1,0 +1,75 @@
+name: Staging Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Terraform operation
+        type: choice
+        required: true
+        default: plan
+        options: [plan, apply]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: rentstage-staging-change
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    name: Terraform ${{ inputs.operation }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: staging
+    defaults:
+      run:
+        working-directory: infra/staging
+    env:
+      TF_IN_AUTOMATION: 'true'
+      TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_region: ${{ vars.GCP_REGION }}
+      TF_VAR_artifact_repository: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+      TF_VAR_deploy_service_account_email: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      TF_VAR_database_password: ${{ secrets.STAGING_DATABASE_PASSWORD }}
+    steps:
+      - name: Require main branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo 'Run staging infrastructure only from main.' >&2
+          exit 1
+      - uses: actions/checkout@v7.0.1
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_INFRA_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3.0.1
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+      - run: terraform fmt -recursive
+      - name: Initialize remote state
+        run: terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="prefix=rentstage/staging"
+      - run: terraform validate
+      - name: Create plan
+        run: terraform plan -input=false -lock-timeout=5m -out=tfplan
+      - name: Apply reviewed plan
+        if: inputs.operation == 'apply'
+        run: terraform apply -input=false -auto-approve tfplan
+      - name: Infrastructure outputs
+        if: inputs.operation == 'apply'
+        run: |
+          {
+            echo '## RentStage staging infrastructure'
+            echo ''
+            echo '- Artifact Registry: `rentstage`'
+            echo '- Cloud SQL: `rentstage-staging-postgres`'
+            echo '- API service account: `rentstage-api-stg`'
+            echo '- Web service account: `rentstage-web-stg`'
+            echo '- Identity Platform email/password: enabled'
+            echo '- Cloud Run services are created by the application pipeline.'
+          } >> "$GITHUB_STEP_SUMMARY"

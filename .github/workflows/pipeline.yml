@@ -1,0 +1,399 @@
+name: RentStage CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rentstage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GO_VERSION: 1.26.5
+  NODE_VERSION: 24
+  TERRAFORM_VERSION: 1.15.8
+
+jobs:
+  repository-validation:
+    name: Repository validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.13'
+      - name: Install validation tools
+        run: |
+          python -m pip install --disable-pip-version-check PyYAML==6.0.2
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+      - name: Validate repository contracts
+        run: |
+          bash scripts/ci/check-version.sh
+          python scripts/ci/check-migrations.py
+          bash scripts/ci/check-sensitive-files.sh
+          python scripts/ci/check-workflow-yaml.py
+          docker compose config >/dev/null
+          git diff --check
+      - name: Validate shell and PowerShell helpers
+        run: |
+          shellcheck -x scripts/ci/*.sh scripts/gcp/*.sh scripts/bootstrap-gcp-staging.sh
+          for script in scripts/*.ps1 scripts/lib/*.ps1; do
+            pwsh -NoLogo -NoProfile -Command '
+              $errors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile($args[0], [ref]$null, [ref]$errors)
+              if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+            ' "$script"
+          done
+          pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/test-smoke-common.ps1
+
+  api-unit:
+    name: API unit, race, and vet
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: apps/api/go.sum
+      - name: Formatting and module integrity
+        run: |
+          test -z "$(gofmt -l .)"
+          go mod verify
+      - name: Unit tests with race detector
+        run: go test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+      - name: Go vet
+        run: go vet ./...
+      - uses: actions/upload-artifact@v6.0.0
+        with:
+          name: api-coverage
+          path: apps/api/coverage.out
+          if-no-files-found: error
+          retention-days: 14
+
+  web-unit:
+    name: Web unit, typecheck, and production build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm install --no-audit --no-fund
+      - run: npm run test:ci
+
+  terraform-validation:
+    name: Terraform format and validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: infra/staging
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - run: terraform fmt -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+
+  security:
+    name: Source and dependency security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: apps/api/go.sum
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Sensitive-file policy
+        run: bash scripts/ci/check-sensitive-files.sh
+      - name: Gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo --config /repo/.gitleaks.toml --redact --no-banner
+      - name: Go vulnerability database
+        working-directory: apps/api
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          govulncheck ./...
+      - name: Go static security analysis
+        working-directory: apps/api
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+          gosec -exclude-generated ./...
+      - name: npm dependency audit
+        working-directory: apps/web
+        run: |
+          npm install --no-fund
+          npm audit --audit-level=high
+      - name: Trivy filesystem, secrets, and IaC
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Dependency Review
+        if: github.event_name == 'pull_request' && (github.event.repository.visibility == 'public' || vars.ENABLE_DEPENDENCY_REVIEW == 'true')
+        uses: actions/dependency-review-action@v5.0.0
+        with:
+          fail-on-severity: high
+
+  integration:
+    name: Docker integration and complete smoke suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Build, migrate, and run all smoke tests
+        run: bash scripts/ci/smoke-local.sh
+      - name: Upload Docker diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6.0.0
+        with:
+          name: docker-integration-diagnostics
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  container-security:
+    name: Container vulnerability scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: docker/setup-buildx-action@v4.2.0
+      - name: Build API image
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: apps/api
+          load: true
+          tags: rentstage-api:ci
+          build-args: |
+            VERSION=ci
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=github-run-${{ github.run_id }}
+      - name: Build web image
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: apps/web
+          load: true
+          tags: rentstage-web:ci
+          build-args: |
+            RENTSTAGE_VERSION=ci
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=github-run-${{ github.run_id }}
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: rentstage-api:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Scan web image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: rentstage-web:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+  deploy-staging:
+    name: Deploy and smoke staging
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs:
+      - repository-validation
+      - api-unit
+      - web-unit
+      - terraform-validation
+      - security
+      - integration
+      - container-security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: staging
+    concurrency:
+      group: rentstage-staging-change
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - id: gcp-auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          token_format: access_token
+      - uses: google-github-actions/setup-gcloud@v3.0.1
+      - uses: docker/setup-buildx-action@v4.2.0
+      - name: Log in to Artifact Registry
+        uses: docker/login-action@v4.6.0
+        with:
+          registry: ${{ vars.GCP_REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.gcp-auth.outputs.access_token }}
+      - id: staging-config
+        name: Resolve staging infrastructure
+        env:
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION }}
+        run: |
+          set -euo pipefail
+          connection="$(gcloud sql instances describe rentstage-staging-postgres --project "$PROJECT_ID" --format='value(connectionName)')"
+          firebase_key="$(gcloud secrets versions access latest --secret=rentstage-staging-firebase-api-key --project "$PROJECT_ID")"
+          version="$(tr -d '[:space:]' < VERSION)"
+          previous_api="$(gcloud run services describe rentstage-api-staging --project "$PROJECT_ID" --region "$REGION" --format='value(status.latestReadyRevisionName)' 2>/dev/null || true)"
+          previous_web="$(gcloud run services describe rentstage-web-staging --project "$PROJECT_ID" --region "$REGION" --format='value(status.latestReadyRevisionName)' 2>/dev/null || true)"
+          [[ -n "$previous_api" ]] || previous_api="__NONE__"
+          [[ -n "$previous_web" ]] || previous_web="__NONE__"
+          {
+            echo "cloud_sql_connection=$connection"
+            echo "version=$version"
+            echo "previous_api=$previous_api"
+            echo "previous_web=$previous_web"
+          } >> "$GITHUB_OUTPUT"
+          echo "::add-mask::$firebase_key"
+          printf '%s' "$firebase_key" > "$RUNNER_TEMP/firebase-api-key"
+      - id: build-api
+        name: Build and push API
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: apps/api
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: |
+            ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/rentstage-api:${{ github.sha }}
+            ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/rentstage-api:staging
+          build-args: |
+            VERSION=${{ steps.staging-config.outputs.version }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=github-run-${{ github.run_id }}
+      - id: build-web
+        name: Build and push web
+        env:
+          FIREBASE_API_KEY_FILE: ${{ runner.temp }}/firebase-api-key
+        run: |
+          set -euo pipefail
+          firebase_key="$(cat "$FIREBASE_API_KEY_FILE")"
+          image="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/rentstage-web:${{ github.sha }}"
+          docker buildx build \
+            --push \
+            --provenance=mode=max \
+            --sbom=true \
+            --tag "$image" \
+            --tag "${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/rentstage-web:staging" \
+            --build-arg "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}" \
+            --build-arg "NEXT_PUBLIC_FIREBASE_API_KEY=${firebase_key}" \
+            --build-arg "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ vars.GCP_PROJECT_ID }}.firebaseapp.com" \
+            --build-arg "NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_PORT=9099" \
+            --build-arg "NEXT_PUBLIC_USE_AUTH_EMULATOR=false" \
+            --build-arg "RENTSTAGE_VERSION=${{ steps.staging-config.outputs.version }}" \
+            --build-arg "VCS_REF=${{ github.sha }}" \
+            --build-arg "BUILD_DATE=github-run-${{ github.run_id }}" \
+            apps/web
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+      - name: Scan pushed API image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/rentstage-api:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Scan pushed web image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.build-web.outputs.image }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+      - id: deploy
+        name: Deploy Cloud Run services
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          CLOUD_SQL_CONNECTION: ${{ steps.staging-config.outputs.cloud_sql_connection }}
+          RENTSTAGE_VERSION: ${{ steps.staging-config.outputs.version }}
+          STAGING_SEED_DEMO_DATA: ${{ vars.STAGING_SEED_DEMO_DATA }}
+          API_IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/rentstage-api:${{ github.sha }}
+          WEB_IMAGE: ${{ steps.build-web.outputs.image }}
+        run: bash scripts/gcp/deploy-staging.sh
+      - name: Ensure staging smoke user
+        env:
+          FIREBASE_API_KEY_FILE: ${{ runner.temp }}/firebase-api-key
+          SMOKE_EMAIL: ${{ secrets.STAGING_SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+        run: |
+          pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-staging-user.ps1 \
+            -ApiKey "$(cat "$FIREBASE_API_KEY_FILE")" \
+            -Email "$SMOKE_EMAIL" \
+            -Password "$SMOKE_PASSWORD"
+      - name: Run staging smoke suite
+        env:
+          FIREBASE_API_KEY_FILE: ${{ runner.temp }}/firebase-api-key
+          SMOKE_EMAIL: ${{ secrets.STAGING_SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+          RUN_FULL: ${{ vars.RUN_FULL_STAGING_SMOKE }}
+        run: |
+          args=(
+            -WebBase '${{ steps.deploy.outputs.web_url }}'
+            -ApiServiceUrl '${{ steps.deploy.outputs.api_url }}'
+            -ApiKey "$(cat "$FIREBASE_API_KEY_FILE")"
+            -Email "$SMOKE_EMAIL"
+            -Password "$SMOKE_PASSWORD"
+          )
+          if [[ "$RUN_FULL" != "true" ]]; then args+=(-ReadOnly); fi
+          pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-staging.ps1 "${args[@]}"
+      - name: Roll back failed staging deployment
+        if: failure() && steps.deploy.outputs.attempted == 'true'
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          PREVIOUS_API_REVISION: ${{ steps.staging-config.outputs.previous_api }}
+          PREVIOUS_WEB_REVISION: ${{ steps.staging-config.outputs.previous_web }}
+        run: bash scripts/gcp/rollback-staging.sh
+      - name: Deployment summary
+        if: success()
+        run: |
+          {
+            echo '## RentStage staging deployed'
+            echo ''
+            echo '- Web: ${{ steps.deploy.outputs.web_url }}'
+            echo '- API: private Cloud Run service'
+            echo '- Version: ${{ steps.staging-config.outputs.version }}'
+            echo '- Revision source: `${{ github.sha }}`'
+          } >> "$GITHUB_STEP_SUMMARY"

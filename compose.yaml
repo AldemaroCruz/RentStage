@@ -1,0 +1,126 @@
+name: rentstage
+
+services:
+  db:
+    image: postgres:18.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rentstage}
+      POSTGRES_USER: ${POSTGRES_USER:-rentstage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rentstage_local_change_me}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - rentstage_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rentstage} -d ${POSTGRES_DB:-rentstage}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  auth:
+    build:
+      context: ./apps/auth-emulator
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-demo-rentstage}
+    ports:
+      - "127.0.0.1:${AUTH_EMULATOR_PORT:-9099}:9099"
+      - "127.0.0.1:${AUTH_EMULATOR_UI_PORT:-4000}:4000"
+    volumes:
+      - rentstage_auth_data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "const n=require('net').connect(9099,'127.0.0.1');n.on('connect',()=>{n.end();process.exit(0)});n.on('error',()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 25s
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${RENTSTAGE_VERSION:-local}
+        VCS_REF: ${VCS_REF:-local}
+        BUILD_DATE: ${BUILD_DATE:-local}
+    restart: unless-stopped
+    environment:
+      APP_ENV: local
+      HTTP_ADDR: :8080
+      DATABASE_URL: postgres://${POSTGRES_USER:-rentstage}:${POSTGRES_PASSWORD:-rentstage_local_change_me}@db:5432/${POSTGRES_DB:-rentstage}?sslmode=disable
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      ALLOW_DEMO_DATA_OUTSIDE_LOCAL: "false"
+      CORS_ALLOWED_ORIGINS: http://localhost:${WEB_PORT:-3000},http://127.0.0.1:${WEB_PORT:-3000}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-demo-rentstage}
+      GCLOUD_PROJECT: ${FIREBASE_PROJECT_ID:-demo-rentstage}
+      FIREBASE_AUTH_EMULATOR_HOST: auth:9099
+      SESSION_DURATION: ${SESSION_DURATION:-12h}
+      SESSION_COOKIE_NAME: rentstage_session
+      TENANT_COOKIE_NAME: rentstage_tenant
+      CSRF_COOKIE_NAME: rentstage_csrf
+      COOKIE_SECURE: "false"
+      REQUIRE_VERIFIED_EMAIL: "false"
+      WEB_BASE_URL: http://127.0.0.1:${WEB_PORT:-3000}
+      LOCAL_AUTH_BOOTSTRAP: ${LOCAL_AUTH_BOOTSTRAP:-true}
+      LOCAL_OWNER_EMAIL: ${LOCAL_OWNER_EMAIL:-owner@rentstage.local}
+      LOCAL_OWNER_PASSWORD: ${LOCAL_OWNER_PASSWORD:-RentStage123!}
+      LOCAL_OWNER_DISPLAY_NAME: ${LOCAL_OWNER_DISPLAY_NAME:-Administrador Demo}
+      LOCAL_DEFAULT_TENANT_ID: 00000000-0000-0000-0000-000000000001
+      PUBLIC_REQUEST_FINGERPRINT_SALT: ${PUBLIC_REQUEST_FINGERPRINT_SALT:-rentstage-local-public-catalog}
+      DTE_MH_USER: ${DTE_MH_USER:-}
+      DTE_MH_PASSWORD: ${DTE_MH_PASSWORD:-}
+      DTE_MH_SIGNING_PASSWORD: ${DTE_MH_SIGNING_PASSWORD:-}
+    ports:
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/rentstage-api", "healthcheck", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+      start_period: 25s
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-demo-rentstage}
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${FIREBASE_API_KEY:-rentstage-local-api-key}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN:-demo-rentstage.firebaseapp.com}
+        NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_PORT: ${AUTH_EMULATOR_PORT:-9099}
+        NEXT_PUBLIC_USE_AUTH_EMULATOR: "true"
+        RENTSTAGE_VERSION: ${RENTSTAGE_VERSION:-local}
+        VCS_REF: ${VCS_REF:-local}
+        BUILD_DATE: ${BUILD_DATE:-local}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      RENTSTAGE_VERSION: ${RENTSTAGE_VERSION:-local}
+      API_INTERNAL_URL: http://api:8080
+      API_AUDIENCE: ""
+      CLOUD_RUN_IDENTITY_TOKEN_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+
+volumes:
+  rentstage_postgres_data:
+  rentstage_auth_data:

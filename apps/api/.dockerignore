@@ -1,0 +1,3 @@
+rentstage-api
+*.log
+.coverage

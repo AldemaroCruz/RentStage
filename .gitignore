@@ -1,0 +1,66 @@
+.env
+.env.*
+!.env.example
+*.local
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+coverage/
+.test-results/
+
+# Go
+*.test
+*.prof
+coverage.out
+
+# Local runtime and exports
+backups/
+artifacts/
+*.dump
+*.backup
+*.sql.gz
+firebase-export/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Google / GitHub credentials
+gha-creds-*.json
+application_default_credentials.json
+service-account*.json
+*-service-account.json
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+@'
+
+# Local database backups and runtime data
+backups/
+*.dump
+*.backup
+*.sql.gz
+*.tar.gz
+
+# Local credentials and generated authentication files
+gha-creds-*.json
+gcloud-*.json
+credentials.json
+service-account*.json
+'@ | Add-Content .\.gitignore

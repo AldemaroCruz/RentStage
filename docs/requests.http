@@ -1,0 +1,809 @@
+# RentStage v0.12 API examples
+#
+# These examples assume the Docker Compose stack is running locally.
+# Use a cookie-aware HTTP client. In VS Code REST Client, enable cookie
+# persistence for subsequent requests. The PowerShell alternative is:
+#
+#   powershell -ExecutionPolicy Bypass -File .\scripts\smoke-auth.ps1
+#
+# RentStage does not accept X-Tenant-ID or X-Actor-ID as authority.
+
+@api = http://127.0.0.1:8080
+@auth = http://127.0.0.1:9099
+@apiKey = rentstage-local-api-key
+@email = owner@rentstage.local
+@password = RentStage123!
+
+### Health
+GET {{api}}/healthz
+
+### Readiness
+GET {{api}}/readyz
+
+### Sign in through the Firebase Authentication emulator
+# @name firebaseSignIn
+POST {{auth}}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={{apiKey}}
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "returnSecureToken": true
+}
+
+### Obtain CSRF cookie + token
+# @name csrf
+GET {{api}}/api/v1/auth/csrf
+
+### Exchange Firebase ID token for the HttpOnly RentStage session
+# The HTTP client must retain the CSRF cookie from the previous request.
+# @name session
+POST {{api}}/api/v1/auth/session
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "id_token": "{{firebaseSignIn.response.body.idToken}}"
+}
+
+### Current user, workspaces, active workspace, and permissions
+GET {{api}}/api/v1/auth/me
+
+### Tenant-protected dashboard
+GET {{api}}/api/v1/dashboard
+
+### List workspaces through auth context
+# Workspaces are returned by /auth/me. To switch, copy a tenant_id.
+@tenantId = 00000000-0000-0000-0000-000000000001
+
+### Select active workspace
+POST {{api}}/api/v1/auth/select-tenant
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "tenant_id": "{{tenantId}}"
+}
+
+### Read active organization
+GET {{api}}/api/v1/tenant
+
+### Create a second organization
+# @name createOrganization
+POST {{api}}/api/v1/organizations
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "name": "Studio 503",
+  "slug": "studio-503-api-test",
+  "legal_name": "Studio 503, S.A. de C.V.",
+  "email": "contacto@studio503.example",
+  "phone": "+50370000001",
+  "country_code": "SV",
+  "timezone": "America/El_Salvador",
+  "currency": "USD",
+  "address": "San Salvador"
+}
+
+### Select the newly created workspace
+POST {{api}}/api/v1/auth/select-tenant
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "tenant_id": "{{createOrganization.response.body.tenant_id}}"
+}
+
+### Update active organization (OWNER/ADMIN)
+PATCH {{api}}/api/v1/tenant
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "name": "Studio 503",
+  "slug": "studio-503-api-test",
+  "legal_name": "Studio 503, S.A. de C.V.",
+  "email": "hola@studio503.example",
+  "phone": "+50370000001",
+  "country_code": "SV",
+  "timezone": "America/El_Salvador",
+  "currency": "USD",
+  "address": "San Salvador"
+}
+
+### List team and invitations (OWNER/ADMIN)
+GET {{api}}/api/v1/team
+
+### Create invitation (OWNER/ADMIN)
+# The response includes accept_url once for local copy/paste testing.
+# @name invitation
+POST {{api}}/api/v1/team/invitations
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "email": "manager@example.com",
+  "role": "MANAGER"
+}
+
+### Public invitation preview
+# Copy the raw token from invitation.accept_url into this variable.
+@invitationToken = replace-with-raw-token
+GET {{api}}/api/v1/invitations/{{invitationToken}}
+
+### Accept invitation
+# Sign in as the exact invited email first, create a new server session, then call:
+POST {{api}}/api/v1/invitations/{{invitationToken}}/accept
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+### Update member role/status (OWNER; ADMIN limited to MANAGER/STAFF)
+@memberUserId = replace-with-rentstage-user-uuid
+PATCH {{api}}/api/v1/team/members/{{memberUserId}}
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "role": "STAFF",
+  "status": "ACTIVE"
+}
+
+### Suspend member
+PATCH {{api}}/api/v1/team/members/{{memberUserId}}
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "status": "SUSPENDED"
+}
+
+### Existing tenant-scoped business routes now use the authenticated session
+GET {{api}}/api/v1/customers
+
+### Categories
+GET {{api}}/api/v1/categories
+
+### Resources
+GET {{api}}/api/v1/resources
+
+# -----------------------------------------------------------------------------
+# v0.8.0 — Packages Core
+# -----------------------------------------------------------------------------
+
+@packageDemo = 70000000-0000-0000-0000-000000000001
+@resourceSpeaker = 20000000-0000-0000-0000-000000000001
+@resourceSub = 20000000-0000-0000-0000-000000000002
+@resourceMixer = 20000000-0000-0000-0000-000000000003
+@resourceMicrophone = 20000000-0000-0000-0000-000000000004
+@resourceCableKit = 20000000-0000-0000-0000-000000000005
+
+### List packages available to the active workspace
+GET {{api}}/api/v1/packages?active=true
+
+### Search packages
+GET {{api}}/api/v1/packages?q=fiesta&active=all
+
+### Read the seeded Fiesta 100 package
+GET {{api}}/api/v1/packages/{{packageDemo}}
+
+### Expand two packages into ordinary quote-line snapshots
+GET {{api}}/api/v1/packages/{{packageDemo}}/quote-template?quantity=2
+
+### Check package availability for one blocked period
+POST {{api}}/api/v1/packages/{{packageDemo}}/availability
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "start_at": "2028-08-20T14:00:00-06:00",
+  "end_at": "2028-08-20T23:00:00-06:00",
+  "quantity": 1
+}
+
+### Create a fixed-price package (OWNER/ADMIN)
+# Change the slug before running this request again.
+# @name createPackage
+POST {{api}}/api/v1/packages
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "name": "Paquete ceremonia API",
+  "slug": "paquete-ceremonia-api-test",
+  "description": "Sistema compacto para ceremonia y discursos.",
+  "guest_capacity": 80,
+  "pricing_mode": "FIXED",
+  "fixed_price": 145,
+  "image_url": null,
+  "active": true,
+  "items": [
+    {
+      "resource_id": "{{resourceSpeaker}}",
+      "description": "Sistema principal JBL PRX815W",
+      "quantity": 2,
+      "unit_price_override": null,
+      "sort_order": 0
+    },
+    {
+      "resource_id": "{{resourceMixer}}",
+      "description": "Mezcladora digital",
+      "quantity": 1,
+      "unit_price_override": null,
+      "sort_order": 1
+    },
+    {
+      "resource_id": "{{resourceMicrophone}}",
+      "description": "Micrófonos para ceremonia",
+      "quantity": 2,
+      "unit_price_override": null,
+      "sort_order": 2
+    },
+    {
+      "resource_id": "{{resourceCableKit}}",
+      "description": "Cableado básico",
+      "quantity": 1,
+      "unit_price_override": null,
+      "sort_order": 3
+    }
+  ]
+}
+
+### Update package pricing and composition (OWNER/ADMIN)
+PATCH {{api}}/api/v1/packages/{{createPackage.response.body.id}}
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "name": "Paquete ceremonia API",
+  "slug": "paquete-ceremonia-api-test",
+  "description": "Sistema compacto para ceremonia y discursos, con precio actualizado.",
+  "guest_capacity": 80,
+  "pricing_mode": "SUM_ITEMS",
+  "fixed_price": null,
+  "image_url": null,
+  "active": true,
+  "items": [
+    {
+      "resource_id": "{{resourceSpeaker}}",
+      "description": "Sistema principal JBL PRX815W",
+      "quantity": 2,
+      "unit_price_override": null,
+      "sort_order": 0
+    },
+    {
+      "resource_id": "{{resourceMixer}}",
+      "description": "Mezcladora digital",
+      "quantity": 1,
+      "unit_price_override": null,
+      "sort_order": 1
+    },
+    {
+      "resource_id": "{{resourceMicrophone}}",
+      "description": "Micrófonos para ceremonia",
+      "quantity": 2,
+      "unit_price_override": 7.50,
+      "sort_order": 2
+    },
+    {
+      "resource_id": "{{resourceCableKit}}",
+      "description": "Cableado básico",
+      "quantity": 1,
+      "unit_price_override": null,
+      "sort_order": 3
+    }
+  ]
+}
+
+### Archive the API test package (OWNER/ADMIN)
+DELETE {{api}}/api/v1/packages/{{createPackage.response.body.id}}
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+### Quotes
+GET {{api}}/api/v1/quotes
+
+### Reservations
+GET {{api}}/api/v1/reservations
+
+### Calendar
+GET {{api}}/api/v1/calendar?from=2026-08-01T00:00:00-06:00&to=2026-09-01T00:00:00-06:00
+
+### Audit log (OWNER/ADMIN)
+GET {{api}}/api/v1/audit
+
+# -----------------------------------------------------------------------------
+# v0.9.0 — Public Catalog
+# -----------------------------------------------------------------------------
+
+@tenantSlug = audiopro-demo
+@publicPackageSlug = paquete-fiesta-100-personas
+@quoteRequestId = replace-with-quote-request-uuid
+
+### Anonymous tenant storefront payload
+GET {{api}}/api/v1/public/catalogs/{{tenantSlug}}
+
+### Anonymous public package detail
+GET {{api}}/api/v1/public/catalogs/{{tenantSlug}}/packages/{{publicPackageSlug}}
+
+### Anonymous public resource detail
+GET {{api}}/api/v1/public/catalogs/{{tenantSlug}}/resources/jbl-prx815w
+
+### Anonymous privacy-reduced package availability
+POST {{api}}/api/v1/public/catalogs/{{tenantSlug}}/availability
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "start_at": "2028-09-20T14:00:00-06:00",
+  "end_at": "2028-09-20T23:00:00-06:00",
+  "selections": [
+    {
+      "package_slug": "{{publicPackageSlug}}",
+      "quantity": 1
+    }
+  ]
+}
+
+### Anonymous quote request
+# @name publicQuoteRequest
+POST {{api}}/api/v1/public/catalogs/{{tenantSlug}}/quote-requests
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "first_name": "Andrea",
+  "last_name": "Martínez",
+  "phone": "+50371234567",
+  "email": "andrea.public@example.com",
+  "company_name": null,
+  "preferred_language": "es",
+  "event_type": "Fiesta privada",
+  "event_location": "San Salvador",
+  "start_at": "2028-09-20T14:00:00-06:00",
+  "end_at": "2028-09-20T23:00:00-06:00",
+  "notes": "Solicitud creada desde REST Client.",
+  "consent_accepted": true,
+  "website": "",
+  "selections": [
+    {
+      "package_slug": "{{publicPackageSlug}}",
+      "quantity": 1
+    }
+  ]
+}
+
+### Read public-catalog administration (authenticated)
+GET {{api}}/api/v1/public-catalog
+
+### Update tenant storefront settings (OWNER/ADMIN)
+PATCH {{api}}/api/v1/public-catalog
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "enabled": true,
+  "headline": "Audio profesional para eventos que deben sonar increíble",
+  "description": "Paquetes de sonido y equipo para eventos en San Salvador.",
+  "cover_image_url": null,
+  "accent_color": "#6657F7",
+  "show_prices": true,
+  "show_resources": true,
+  "quote_requests_enabled": true,
+  "contact_email": "hello@audiopro.demo",
+  "contact_phone": "+503 7000-0000",
+  "contact_address": "San Salvador",
+  "terms_text": "Al enviar esta solicitud autorizas al proveedor a contactarte para preparar una cotización. La disponibilidad mostrada es una referencia y no constituye una reserva.",
+  "terms_version": "1.0"
+}
+
+### Publish the seeded package (OWNER/ADMIN)
+PATCH {{api}}/api/v1/public-catalog/packages/{{packageDemo}}
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "visible": true,
+  "featured": true,
+  "sort_order": 10
+}
+
+### Publish a resource (OWNER/ADMIN)
+PATCH {{api}}/api/v1/public-catalog/resources/{{resourceSpeaker}}
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "public_slug": "jbl-prx815w",
+  "public_description": "Bocina activa para sonido principal o monitoreo.",
+  "public_image_url": null,
+  "visible": true,
+  "featured": true,
+  "sort_order": 10
+}
+
+### List web quote requests
+GET {{api}}/api/v1/quote-requests
+
+### Filter request inbox
+GET {{api}}/api/v1/quote-requests?status=NEW&q=Andrea
+
+### Read request detail
+GET {{api}}/api/v1/quote-requests/{{quoteRequestId}}
+
+### Move request to review (OWNER/ADMIN/MANAGER)
+PATCH {{api}}/api/v1/quote-requests/{{quoteRequestId}}
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "status": "IN_REVIEW"
+}
+
+### Convert request to customer + DRAFT quote (OWNER/ADMIN/MANAGER)
+POST {{api}}/api/v1/quote-requests/{{quoteRequestId}}/convert
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+# -----------------------------------------------------------------------------
+# v0.10.0 — Quote Portal
+# -----------------------------------------------------------------------------
+
+@quotePortalQuoteId = replace-with-draft-or-sent-quote-uuid
+# After send/reissue, copy only the fragment value after # from portal.public_url.
+# The raw value is returned once and is never persisted by RentStage.
+@quotePortalToken = replace-with-one-time-fragment-token
+
+### Read Quote Portal settings (quote.read)
+GET {{api}}/api/v1/quote-portal-settings
+
+### Update Quote Portal settings (quote.manage)
+PATCH {{api}}/api/v1/quote-portal-settings
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "enabled": true,
+  "headline": "Tu cotización está lista",
+  "introduction": "Revisa los detalles, las fechas y los términos antes de responder.",
+  "accent_color": "#6558e8",
+  "default_validity_days": 7,
+  "allow_rejection": true,
+  "require_response_name": true,
+  "acceptance_terms_text": "Al aceptar confirmo que revisé la cotización, sus fechas, precios y condiciones comerciales.",
+  "acceptance_terms_version": "1.0"
+}
+
+### Send a DRAFT quote and generate the one-time portal URL (quote.manage)
+# @name sendPortalQuote
+POST {{api}}/api/v1/quotes/{{quotePortalQuoteId}}/send
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+### Rotate a SENT quote portal; the previous token becomes invalid immediately
+# @name reissuePortalQuote
+POST {{api}}/api/v1/quotes/{{quotePortalQuoteId}}/portal/reissue
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+### Anonymous public quote document
+# The token is intentionally a header, never a path or query value.
+GET {{api}}/api/v1/public/quote-portal
+X-RentStage-Quote-Token: {{quotePortalToken}}
+
+### Accept through the anonymous portal
+POST {{api}}/api/v1/public/quote-portal/accept
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+X-RentStage-Quote-Token: {{quotePortalToken}}
+
+{
+  "response_name": "Andrea Martínez",
+  "response_email": "andrea@example.com",
+  "terms_accepted": true
+}
+
+### Reject through the anonymous portal
+POST {{api}}/api/v1/public/quote-portal/reject
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+X-RentStage-Quote-Token: {{quotePortalToken}}
+
+{
+  "response_name": "Andrea Martínez",
+  "response_email": "andrea@example.com",
+  "rejection_reason": "Necesito ajustar la fecha y el horario."
+}
+
+### Revoke the current SENT quote portal (quote.manage)
+DELETE {{api}}/api/v1/quotes/{{quotePortalQuoteId}}/portal
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+# -----------------------------------------------------------------------------
+# v0.11.0 — Billing & Payments Core
+# -----------------------------------------------------------------------------
+
+@billingCustomerId = replace-with-customer-uuid
+@billingTaxRuleId = replace-with-tax-rule-uuid
+@billingInvoiceId = replace-with-invoice-uuid
+@billingPaymentId = replace-with-payment-uuid
+@billingReservationId = replace-with-reservation-uuid
+@billingDepositId = replace-with-security-deposit-uuid
+
+### Read tenant billing settings (billing.read)
+GET {{api}}/api/v1/billing/settings
+
+### Configure tenant fiscal profile and invoice policy (billing.manage)
+PATCH {{api}}/api/v1/billing/settings
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "enabled": true,
+  "legal_name": "AudioPro Demo, S.A. de C.V.",
+  "trade_name": "AudioPro Demo",
+  "tax_id": "0614-000000-000-0",
+  "tax_registration_number": "000000-0",
+  "economic_activity": "Alquiler de equipo de audio",
+  "economic_activity_code": "77290",
+  "fiscal_address": "San Salvador, El Salvador",
+  "department": "San Salvador",
+  "municipality": "San Salvador Centro",
+  "district": "San Salvador",
+  "email": "facturacion@audiopro.demo",
+  "phone": "+50370000000",
+  "prices_include_tax": false,
+  "default_tax_rate": 13,
+  "default_payment_terms_days": 7,
+  "invoice_prefix": "INV"
+}
+
+### List active tax rules (billing.read)
+GET {{api}}/api/v1/billing/tax-rules
+
+### Financial dashboard (billing.read)
+GET {{api}}/api/v1/billing/dashboard
+
+### Create a manual internal invoice DRAFT (billing.manage)
+# @name createBillingInvoice
+POST {{api}}/api/v1/invoices
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "source_type": "MANUAL",
+  "source_id": null,
+  "customer_id": "{{billingCustomerId}}",
+  "issue_date": "2026-08-15",
+  "due_date": "2026-08-22",
+  "currency": "USD",
+  "notes": "Factura interna creada desde REST Client.",
+  "terms": "Documento interno. No constituye un DTE de Hacienda.",
+  "items": [
+    {
+      "resource_id": null,
+      "tax_rule_id": "{{billingTaxRuleId}}",
+      "description": "Servicio de renta de audio",
+      "quantity": 1,
+      "unit_price": 100,
+      "discount_amount": 0
+    }
+  ]
+}
+
+### Create an invoice from an accepted quote (billing.manage)
+POST {{api}}/api/v1/invoices
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "source_type": "QUOTE",
+  "source_id": "{{quotePortalQuoteId}}",
+  "customer_id": "",
+  "issue_date": "2026-08-15",
+  "due_date": "",
+  "currency": "USD",
+  "notes": "",
+  "terms": "Documento interno. No constituye un DTE.",
+  "items": []
+}
+
+### Create an invoice from a non-cancelled reservation (billing.manage)
+POST {{api}}/api/v1/invoices
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "source_type": "RESERVATION",
+  "source_id": "{{billingReservationId}}",
+  "customer_id": "",
+  "issue_date": "2026-08-15",
+  "due_date": "",
+  "currency": "USD",
+  "notes": "",
+  "terms": "Documento interno. No constituye un DTE.",
+  "items": []
+}
+
+### List invoices and filter open receivables
+GET {{api}}/api/v1/invoices?status=ISSUED&limit=100
+
+### Read invoice detail
+GET {{api}}/api/v1/invoices/{{billingInvoiceId}}
+
+### Issue DRAFT invoice and consume the next tenant number (billing.manage)
+POST {{api}}/api/v1/invoices/{{billingInvoiceId}}/issue
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+### Void an unpaid DRAFT or ISSUED invoice (billing.manage)
+POST {{api}}/api/v1/invoices/{{billingInvoiceId}}/void
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "reason": "Documento de prueba anulado."
+}
+
+### Record a payment allocated to one invoice (payment.manage)
+# @name createBillingPayment
+POST {{api}}/api/v1/payments
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "customer_id": "{{billingCustomerId}}",
+  "amount": 50,
+  "currency": "USD",
+  "method": "BANK_TRANSFER",
+  "reference": "TRANSFER-0001",
+  "notes": "Anticipo aplicado a factura.",
+  "received_at": "2026-08-15T16:00:00-06:00",
+  "allocations": [
+    {
+      "invoice_id": "{{billingInvoiceId}}",
+      "amount": 50
+    }
+  ]
+}
+
+### List payments
+GET {{api}}/api/v1/payments?status=CONFIRMED&limit=100
+
+### Read payment and allocations
+GET {{api}}/api/v1/payments/{{billingPaymentId}}
+
+### Reverse a confirmed payment and restore receivables (payment.manage)
+POST {{api}}/api/v1/payments/{{billingPaymentId}}/void
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "reason": "Referencia bancaria incorrecta."
+}
+
+### Create a pending security deposit (payment.manage)
+# @name createSecurityDeposit
+POST {{api}}/api/v1/security-deposits
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "reservation_id": "{{billingReservationId}}",
+  "amount": 100,
+  "currency": "USD",
+  "method": "BANK_TRANSFER",
+  "reference": "DEPOSIT-0001",
+  "notes": "Garantía reembolsable separada de la venta.",
+  "mark_received": false,
+  "received_at": null
+}
+
+### Mark a pending deposit as received (payment.manage)
+POST {{api}}/api/v1/security-deposits/{{billingDepositId}}/receive
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "received_at": "2026-08-15T16:15:00-06:00",
+  "method": "BANK_TRANSFER",
+  "reference": "DEPOSIT-0001",
+  "notes": "Confirmado en cuenta bancaria."
+}
+
+### Settle cumulative returned/retained amounts (payment.manage)
+POST {{api}}/api/v1/security-deposits/{{billingDepositId}}/settle
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "returned_amount": 80,
+  "retained_amount": 20,
+  "settled_at": "2026-08-16T18:00:00-06:00",
+  "reason": "Se retuvieron $20 por un cable dañado."
+}
+
+### List security deposits
+GET {{api}}/api/v1/security-deposits?limit=100
+
+### Read security deposit
+GET {{api}}/api/v1/security-deposits/{{billingDepositId}}
+
+
+# -----------------------------------------------------------------------------
+# v0.12.0 — El Salvador DTE Integration Foundation
+# -----------------------------------------------------------------------------
+
+@dteInvoiceId = replace-with-an-issued-invoice-uuid
+@dteDocumentId = replace-with-dte-document-uuid
+
+### Read DTE settings (fiscal.read)
+GET {{api}}/api/v1/dte-settings
+
+### Configure safe local MOCK / TEST mode (fiscal.manage)
+PATCH {{api}}/api/v1/dte-settings
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "enabled": true,
+  "provider_mode": "MOCK",
+  "environment": "TEST",
+  "default_document_type": "01",
+  "schema_version": 1,
+  "establishment_type": "01",
+  "establishment_code": "M001",
+  "point_of_sale_code": "P001",
+  "auth_url": "",
+  "signer_url": "",
+  "reception_url": "",
+  "invalidation_url": "",
+  "query_url": "",
+  "user_secret_ref": "",
+  "password_secret_ref": "",
+  "signing_password_secret_ref": "",
+  "auto_submit_on_issue": false,
+  "max_attempts": 5,
+  "retry_base_seconds": 60
+}
+
+### List tenant DTE
+GET {{api}}/api/v1/dte?limit=100
+
+### Prepare DTE from an issued invoice (fiscal.manage)
+# @name prepareDTE
+POST {{api}}/api/v1/invoices/{{dteInvoiceId}}/dte
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "document_type": "AUTO"
+}
+
+### Read the DTE linked to an invoice
+GET {{api}}/api/v1/invoices/{{dteInvoiceId}}/dte
+
+### Read immutable DTE payload, provider evidence, and events
+GET {{api}}/api/v1/dte/{{dteDocumentId}}
+
+### Sign and submit through the configured provider (fiscal.manage)
+POST {{api}}/api/v1/dte/{{dteDocumentId}}/submit
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+### Retry a RETRY_REQUIRED document with the same identity/payload
+POST {{api}}/api/v1/dte/{{dteDocumentId}}/retry
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+### Cancel an unaccepted preparation; its control number is not reused
+POST {{api}}/api/v1/dte/{{dteDocumentId}}/cancel
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+### Invalidate an accepted document (MOCK validation locally)
+POST {{api}}/api/v1/dte/{{dteDocumentId}}/invalidate
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+{
+  "reason": "Invalidación de prueba controlada desde REST Client."
+}
+
+### Logout
+DELETE {{api}}/api/v1/auth/session
+X-CSRF-Token: {{csrf.response.body.csrf_token}}
+
+### Expected after logout: 401
+GET {{api}}/api/v1/auth/me

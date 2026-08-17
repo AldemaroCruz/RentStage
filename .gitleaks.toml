@@ -1,0 +1,17 @@
+title = "RentStage secret scanning"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known local-only placeholders and generated documentation examples"
+regexTarget = "match"
+regexes = [
+  'rentstage-local-api-key',
+  'rentstage_local_change_me',
+  'RentStage123!',
+  'owner@rentstage\.local',
+]
+paths = [
+  '(^|/)docs/VALIDATION-[^/]+\.md$',
+]
