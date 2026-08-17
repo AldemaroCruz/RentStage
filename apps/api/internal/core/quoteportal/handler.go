@@ -11,6 +11,7 @@ import (
 	"github.com/rentstage/rentstage/apps/api/internal/webutil"
 )
 
+// #nosec G101 -- This constant is a public HTTP header name, not a credential.
 const quotePortalTokenHeader = "X-RentStage-Quote-Token"
 
 func setPublicHeaders(w http.ResponseWriter) {

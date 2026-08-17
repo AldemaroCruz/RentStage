@@ -11,7 +11,7 @@ import (
 )
 
 func SetSessionCookie(w http.ResponseWriter, cfg config.Config, value string) {
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- Cookie attributes are explicit; Secure follows the validated environment configuration.
 		Name:     cfg.SessionCookieName,
 		Value:    value,
 		Path:     "/",
@@ -24,7 +24,7 @@ func SetSessionCookie(w http.ResponseWriter, cfg config.Config, value string) {
 }
 
 func SetTenantCookie(w http.ResponseWriter, cfg config.Config, tenantID string) {
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- Cookie attributes are explicit; Secure follows the validated environment configuration.
 		Name:     cfg.TenantCookieName,
 		Value:    tenantID,
 		Path:     "/",
@@ -38,7 +38,7 @@ func SetTenantCookie(w http.ResponseWriter, cfg config.Config, tenantID string) 
 
 func ClearAuthCookies(w http.ResponseWriter, cfg config.Config) {
 	for _, name := range []string{cfg.SessionCookieName, cfg.TenantCookieName, cfg.CSRFCookieName} {
-		http.SetCookie(w, &http.Cookie{
+		http.SetCookie(w, &http.Cookie{ // #nosec G124 -- Cookie attributes are explicit; Secure follows the validated environment configuration.
 			Name:     name,
 			Value:    "",
 			Path:     "/",
@@ -57,7 +57,7 @@ func IssueCSRFToken(w http.ResponseWriter, cfg config.Config) (string, error) {
 		return "", err
 	}
 	token := base64.RawURLEncoding.EncodeToString(value)
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- Cookie attributes are explicit; Secure follows the validated environment configuration.
 		Name:     cfg.CSRFCookieName,
 		Value:    token,
 		Path:     "/",

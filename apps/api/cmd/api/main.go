@@ -18,6 +18,8 @@ import (
 
 var version = "dev"
 
+const localHealthcheckURL = "http://127.0.0.1:8080/healthz"
+
 func main() {
 	if len(os.Args) >= 2 && os.Args[1] == "healthcheck" {
 		healthcheck()
@@ -75,18 +77,19 @@ func main() {
 }
 
 func healthcheck() {
-	if len(os.Args) < 3 {
-		fmt.Fprintln(os.Stderr, "usage: rentstage-api healthcheck <url>")
-		os.Exit(2)
+	client := http.Client{
+		Timeout: 2 * time.Second,
 	}
-	client := http.Client{Timeout: 2 * time.Second}
-	response, err := client.Get(os.Args[2])
+
+	response, err := client.Get(localHealthcheckURL)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
+
+	if response.StatusCode < http.StatusOK ||
+		response.StatusCode >= http.StatusMultipleChoices {
 		fmt.Fprintln(os.Stderr, response.Status)
 		os.Exit(1)
 	}

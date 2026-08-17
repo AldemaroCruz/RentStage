@@ -1,6 +1,8 @@
 package dte
 
 import (
+	"context"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -170,5 +172,26 @@ func TestNormalizeSettingsRejectsUnsafeMockProduction(t *testing.T) {
 	}
 	if normalized.AutoSubmitOnIssue {
 		t.Fatalf("unsupported auto-submit remained enabled")
+	}
+}
+
+func TestDoJSONRejectsUnsafeEndpointBeforeNetwork(t *testing.T) {
+	provider := &MHHTTPProvider{
+		settings: Settings{
+			Environment: "TEST",
+		},
+		client: &http.Client{},
+	}
+
+	_, _, err := provider.doJSON(
+		context.Background(),
+		http.MethodPost,
+		"http://127.0.0.1/private",
+		"",
+		map[string]any{"test": true},
+	)
+
+	if err == nil {
+		t.Fatal("doJSON accepted a loopback endpoint")
 	}
 }

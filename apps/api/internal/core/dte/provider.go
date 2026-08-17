@@ -385,10 +385,19 @@ func (p *MHHTTPProvider) transmit(ctx context.Context, token string, document Do
 }
 
 func (p *MHHTTPProvider) doJSON(ctx context.Context, method, endpoint, token string, input any) (map[string]any, int, error) {
+	if err := validateProviderEndpoint(
+		endpoint,
+		p.settings.Environment == "PRODUCTION",
+	); err != nil {
+		return nil, 0, err
+	}
 	encoded, err := json.Marshal(input)
 	if err != nil {
 		return nil, 0, err
 	}
+	// #nosec G704 -- The endpoint is validated immediately above, while the
+	// custom transport rejects private, loopback, link-local and rebinding
+	// destinations and redirects are revalidated.
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(encoded))
 	if err != nil {
 		return nil, 0, err
@@ -398,6 +407,8 @@ func (p *MHHTTPProvider) doJSON(ctx context.Context, method, endpoint, token str
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+	// #nosec G704 -- The request URL passed provider validation and the custom
+	// transport only connects to validated global-unicast destinations.
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return nil, 0, ErrProviderUnavailable

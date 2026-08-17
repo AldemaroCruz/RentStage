@@ -39,6 +39,11 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV RENTSTAGE_VERSION=${RENTSTAGE_VERSION}
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+
+# The standalone server requires node, but not npm or npx.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx
+
 COPY --from=build /app/public ./public
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
