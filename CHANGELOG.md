@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.13.4 - CI gate alignment and Go security patch
+
+### Fixed
+
+- Synchronizes the repository and web package versions at 0.13.4.
+- Upgrades the operational Go toolchain and API builder from 1.26.5 to 1.26.6.
+- Replaces the provider-incompatible Firebase deletion_policy argument with a provider-independent Terraform lifecycle prevent_destroy guard.
+- Unblocks repository validation, Terraform validation, Govulncheck, and the API binary vulnerability scan.
+
+### Compatibility
+
+- No database migration, API contract, application runtime behavior, tenant data, or environment variable changes.
+- Historical validation records keep the Go version used when those releases were originally tested.
+
 ## 0.13.3 — Frontend TypeScript test-import compatibility
 
 ### Fixed
@@ -22,7 +36,7 @@
 ### Fixed
 
 - Corrects the Windows Docker helper that failed with `sh: go: not found`
-  after pulling `golang:1.26.5-alpine`.
+  after pulling the then-pinned Go Alpine builder image.
 - Removes the Alpine login shell (`sh -l`) from module synchronization. Alpine's
   `/etc/profile` resets `PATH`, which drops `/usr/local/go/bin` from the official
   Go image environment.

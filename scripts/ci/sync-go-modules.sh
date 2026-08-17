@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 API_DIR="$ROOT/apps/api"
-IMAGE="golang:1.26.5-alpine"
+IMAGE="golang:1.26.6-alpine"
 
 command -v docker >/dev/null 2>&1 || {
   echo "Docker is required to synchronize the Go module graph." >&2

@@ -157,10 +157,13 @@ resource "google_secret_manager_secret_version" "fingerprint_salt" {
 }
 
 resource "google_firebase_project" "rentstage" {
-  provider        = google-beta
-  project         = var.project_id
-  deletion_policy = "ABANDON"
-  depends_on      = [google_project_service.required]
+  provider   = google-beta
+  project    = var.project_id
+  depends_on = [google_project_service.required]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "google_apikeys_key" "firebase" {

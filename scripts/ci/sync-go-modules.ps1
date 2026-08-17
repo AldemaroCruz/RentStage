@@ -3,10 +3,10 @@ Set-StrictMode -Version Latest
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "../..")
 $apiDirectory = (Resolve-Path (Join-Path $root "apps/api")).Path
-$image = "golang:1.26.5-alpine"
+$image = "golang:1.26.6-alpine"
 
 if ($null -eq (Get-Command docker -ErrorAction SilentlyContinue)) {
-    throw "Docker is required to regenerate Go dependency metadata with Go 1.26.5."
+    throw "Docker is required to regenerate Go dependency metadata with Go 1.26.6."
 }
 
 $mount = "type=bind,source=$apiDirectory,target=/src"

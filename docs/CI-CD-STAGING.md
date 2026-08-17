@@ -200,7 +200,7 @@ git add .\apps\api\go.mod .\apps\api\go.sum
 git commit -m "build: synchronize Go module metadata"
 ```
 
-The Docker-backed command uses Go 1.26.5, so a host Go installation is not
+The Docker-backed command uses Go 1.26.6, so a host Go installation is not
 required. CI runs `go mod tidy` and rejects an uncommitted diff.
 
 The local smoke wrapper supports either executable:

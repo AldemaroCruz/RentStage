@@ -78,7 +78,7 @@ validate:
 	python3 scripts/ci/check-workflow-yaml.py
 	docker compose config >/dev/null
 
-# Requires Go 1.26.5.
+# Requires Go 1.26.6.
 test-api:
 	cd apps/api && test -z "$$(gofmt -l .)" && go mod verify && go test -race -shuffle=on -count=1 ./... && go vet ./...
 
