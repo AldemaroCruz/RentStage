@@ -1,4 +1,4 @@
-# RentStage Starter v0.13.0
+# RentStage Starter v0.13.5
 
 > **Staging CI/CD Foundation** release: local development remains Docker Compose on localhost, while GitHub Actions now validates, secures, builds, deploys, rolls back, and smoke-tests a single Google Cloud staging environment through keyless Workload Identity Federation.
 
