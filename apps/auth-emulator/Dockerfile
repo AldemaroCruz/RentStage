@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Debian 13 (trixie) provides OpenJDK 21 in its stable repositories.
-FROM node:24-trixie-slim
+FROM node:26-trixie-slim
 
 ARG FIREBASE_TOOLS_VERSION=15.26.0
 ENV FIREBASE_TOOLS_VERSION=${FIREBASE_TOOLS_VERSION}
