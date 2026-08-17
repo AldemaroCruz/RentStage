@@ -77,7 +77,7 @@ jobs:
         run: go test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=coverage.out ./...
       - name: Go vet
         run: go vet ./...
-      - uses: actions/upload-artifact@v6.0.0
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: api-coverage
           path: apps/api/coverage.out
@@ -180,7 +180,7 @@ jobs:
         run: bash scripts/ci/smoke-local.sh
       - name: Upload Docker diagnostics
         if: always()
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: docker-integration-diagnostics
           path: artifacts/
