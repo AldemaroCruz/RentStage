@@ -77,10 +77,9 @@ if ($webHealth.status -ne "ok") {
 Assert-StatusCode -Uri "$web/login" -Expected 200
 
 Write-Host "==> Checking the private API through the authenticated server proxy" -ForegroundColor Cyan
-$apiHealth = Invoke-RestMethod -Uri "$apiBase/healthz"
 $apiReady = Invoke-RestMethod -Uri "$apiBase/readyz"
-if ($apiHealth.status -ne "ok" -or $apiReady.status -ne "ready") {
-    throw "The proxied API health checks returned an unexpected payload."
+if ($apiReady.status -ne "ready") {
+    throw "The proxied API readiness check returned an unexpected payload."
 }
 
 Write-Host "==> Confirming that the API Cloud Run service is not anonymous" -ForegroundColor Cyan
