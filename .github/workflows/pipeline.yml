@@ -34,8 +34,7 @@ jobs:
       - name: Install validation tools
         run: |
           python -m pip install --disable-pip-version-check PyYAML==6.0.2
-          sudo apt-get update
-          sudo apt-get install --yes shellcheck
+          shellcheck --version
       - name: Validate repository contracts
         run: |
           bash scripts/ci/check-version.sh
