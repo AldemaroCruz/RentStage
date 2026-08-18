@@ -1,8 +1,17 @@
-# RentStage Starter v0.14.1
+# RentStage Starter v0.14.2
 
 > **Demo comercial para CONAMYPE**: un recorrido guiado conecta inventario, cotización, reserva, facturación y cobro sobre un escenario coherente, desplegable y verificable. WhatsApp + AI permanece presentado como hoja de ruta, no como automatización productiva.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## New in v0.14.2
+
+- Adds a manual **Staging Cost Control** workflow with `status`, `pause`, and `resume` operations.
+- Suspends Cloud SQL instance charges while the commercial demo is not in use, without deleting its database, Terraform state, secrets, images, or Cloud Run services.
+- Requires the automatic deployment gate to be disabled before a pause and requires explicit confirmation for every state change.
+- Stops the main application pipeline before image builds when Cloud SQL is paused and provides an actionable recovery message.
+
+Cloud Run already uses zero minimum instances. The cost-control workflow therefore leaves its stable URLs and Identity Platform configuration intact and targets the staging database, which is the principal fixed runtime cost. See [`docs/STAGING-COST-CONTROL.md`](docs/STAGING-COST-CONTROL.md).
 
 ## Fixed in v0.14.1
 

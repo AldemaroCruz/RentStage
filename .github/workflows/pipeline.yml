@@ -46,6 +46,7 @@ jobs:
       - name: Validate shell and PowerShell helpers
         run: |
           shellcheck -x scripts/ci/*.sh scripts/gcp/*.sh scripts/bootstrap-gcp-staging.sh
+          bash scripts/gcp/test-staging-cost-control.sh
           pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/ci/check-powershell-syntax.ps1
           pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/test-smoke-common.ps1
 
@@ -291,6 +292,11 @@ jobs:
           REGION: ${{ vars.GCP_REGION }}
         run: |
           set -euo pipefail
+          activation_policy="$(gcloud sql instances describe rentstage-staging-postgres --project "$PROJECT_ID" --format='value(settings.activationPolicy)')"
+          if [[ "$activation_policy" != "ALWAYS" ]]; then
+            echo "::error::Cloud SQL staging is paused (activation policy: ${activation_policy:-unknown}). Run Staging Cost Control with operation=resume before deploying."
+            exit 1
+          fi
           connection="$(gcloud sql instances describe rentstage-staging-postgres --project "$PROJECT_ID" --format='value(connectionName)')"
           firebase_key="$(gcloud secrets versions access latest --secret=rentstage-staging-firebase-api-key --project "$PROJECT_ID")"
           version="$(tr -d '[:space:]' < VERSION)"

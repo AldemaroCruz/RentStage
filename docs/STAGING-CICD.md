@@ -61,9 +61,11 @@ Runs on pull requests, pushes to `main`, and manual dispatches.
 
 Manual `plan` or `apply` from `main`. The plan is intentionally not uploaded as an artifact because Terraform plan files can contain sensitive values. Protect the `staging` Environment with a required reviewer when you want an approval gate.
 
-### `.github/workflows/codeql.yml`
+### `.github/workflows/staging-cost-control.yml`
 
-Runs weekly and on pull requests/pushes when the repository is public or repository variable `ENABLE_CODEQL=true` is available for the account plan.
+Manual `status`, `pause`, or `resume` from `main`. It keeps Cloud Run at zero minimum instances and suspends the Cloud SQL instance when staging is not needed. It never deletes application data or infrastructure. See [`STAGING-COST-CONTROL.md`](STAGING-COST-CONTROL.md).
+
+CodeQL analysis for Go and JavaScript/TypeScript runs as a parallel matrix inside the main pipeline.
 
 ### `.github/dependabot.yml`
 

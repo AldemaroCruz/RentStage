@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.14.2 — Staging cost control
+
+### Added
+
+- Adds a protected manual GitHub Actions workflow to inspect, pause, and resume the staging Cloud SQL instance through the existing keyless infrastructure identity.
+- Adds an auditable command-line helper and GitHub job summary for the current Cloud SQL policy, database state, Cloud Run services, and deployment gate.
+- Adds offline regression coverage for status, confirmation guards, deployment-gate guards, pause, resume, and unsupported operations.
+- Adds an operational runbook with GitHub UI and CLI procedures, expected residual costs, recovery, and Terraform-drift guidance.
+
+### Changed
+
+- Fails the staging deployment before building or pushing images when Cloud SQL is paused.
+- Keeps Cloud Run deployed with zero minimum instances so its stable URLs and Identity Platform configuration do not need to be recreated.
+
+### Compatibility
+
+- No database migration, API contract, GCP resource, IAM permission, tenant-data, or application-runtime change.
+- Uses the existing `staging` Environment, Workload Identity Federation provider, infrastructure service account, and `rentstage-staging-change` concurrency group.
+- Pausing suspends database-backed staging functionality but preserves data. Cloud SQL storage, backups, networking, Artifact Registry, Secret Manager, and other retained resources may still incur charges.
+
 ## 0.14.1 — Scrollable application navigation
 
 ### Fixed
