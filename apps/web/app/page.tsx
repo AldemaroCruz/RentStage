@@ -187,11 +187,11 @@ export default function DashboardPage() {
       <section className="future-strip">
         <span className="future-icon">✦</span>
         <div>
-          <p className="eyebrow">OPERATIONS CENTER ONLINE</p>
-          <h3>Calendario, reservas manuales y reprogramación segura</h3>
-          <p>RentStage reúne la agenda diaria, alertas, disponibilidad, preparación física y movimientos de almacén. El siguiente límite antes de publicar será autenticación y roles.</p>
+          <p className="eyebrow">OPERACIÓN INTEGRADA · DEMO READY</p>
+          <h3>La operación comercial y de almacén ya está conectada</h3>
+          <p>Catálogo público, cotizaciones, reservas, inventario, facturación y pagos funcionan sobre una base multiempresa con roles y auditoría. DTE permanece claramente identificado como MOCK / TEST.</p>
         </div>
-        <span className="future-status">v0.5</span>
+        <span className="future-status">v0.13.6</span>
       </section>
     </div>
   );

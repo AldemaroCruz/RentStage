@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.13.6 — Demo readiness and environment-safe login
+
+### Changed
+
+- Shows the documented owner account and prefills its credentials only in web builds that explicitly use the local Firebase Authentication emulator.
+- Starts staging and other non-local login forms empty and omits the local password from their rendered page.
+- Replaces the obsolete v0.5 dashboard milestone with the current multi-tenant product status and an explicit DTE MOCK / TEST boundary.
+- Synchronizes `VERSION`, the web package version, README title, and release documentation at 0.13.6.
+- Adds unit coverage for local/non-local authentication-emulator configuration, including fail-closed handling of invalid values.
+
+### Compatibility
+
+- No database migration, API contract, GCP resource, environment variable, business behavior, or tenant-data change.
+- Local Docker Compose continues to default to the Authentication emulator and the documented local owner account.
+- Staging continues to build with `NEXT_PUBLIC_USE_AUTH_EMULATOR=false` and therefore exposes no local credentials.
+
+## 0.13.5 - Dependency security patch
+
+### Fixed
+
+- Aligns VERSION, the web package version, and the README title at 0.13.5.
+- Upgrades google.golang.org/grpc to v1.82.1.
+- Upgrades golang.org/x/net to v0.56.0.
+- Upgrades golang.org/x/text to v0.39.0.
+- Resolves the reachable Go vulnerability findings and the API binary Trivy findings.
+
+### Compatibility
+
+- No database migration, API contract, runtime behavior, or environment variable changes.
+
 ## 0.13.4 - CI gate alignment and Go security patch
 
 ### Fixed

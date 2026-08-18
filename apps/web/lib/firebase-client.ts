@@ -8,6 +8,7 @@ import {
   inMemoryPersistence,
   setPersistence,
 } from "firebase/auth";
+import { AUTH_EMULATOR_ENABLED } from "./runtime-config";
 
 let configured = false;
 let persistencePromise: Promise<void> | null = null;
@@ -23,8 +24,7 @@ export function getFirebaseAuth(): Auth {
   const auth = getAuth(app);
 
   if (typeof window !== "undefined" && !configured) {
-    const useEmulator = (process.env.NEXT_PUBLIC_USE_AUTH_EMULATOR || "true") === "true";
-    if (useEmulator) {
+    if (AUTH_EMULATOR_ENABLED) {
       const port = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_PORT || "9099";
       connectAuthEmulator(auth, `http://${window.location.hostname}:${port}`, { disableWarnings: true });
     }

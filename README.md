@@ -1,8 +1,18 @@
-# RentStage Starter v0.13.5
+# RentStage Starter v0.13.6
 
-> **Staging CI/CD Foundation** release: local development remains Docker Compose on localhost, while GitHub Actions now validates, secures, builds, deploys, rolls back, and smoke-tests a single Google Cloud staging environment through keyless Workload Identity Federation.
+> **Demo Readiness** release: local development remains Docker Compose on localhost, while the keyless GitHub Actions pipeline validates, secures, builds, deploys, rolls back, and smoke-tests the single Google Cloud staging environment.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## New in v0.13.6
+
+- Keeps the documented local owner credentials available only when the web build explicitly uses the Firebase Authentication emulator.
+- Starts non-local login forms empty and never renders the local password in staging HTML.
+- Replaces the obsolete v0.5 dashboard milestone with the current product/demo-readiness status and an explicit DTE MOCK / TEST boundary.
+- Adds focused runtime-configuration tests so an invalid non-local emulator value fails closed.
+- Records the successful first GCP staging deployment and synchronizes release metadata after the v0.13.5 operational fixes.
+
+This release has no database migration, API contract, GCP resource, environment-variable, or tenant-data change. Local Docker Compose behavior and its documented demo account remain unchanged.
 
 ## New in v0.13.0
 
@@ -496,6 +506,8 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Documentation
 
+- `docs/UPGRADE-0.13.6.md`
+- `docs/VALIDATION-0.13.6.md`
 - `docs/STAGING-CICD.md`
 - `docs/UPGRADE-0.13.0.md`
 - `docs/VALIDATION-0.13.0.md`
