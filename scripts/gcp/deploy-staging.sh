@@ -55,7 +55,7 @@ gcloud run deploy "$WEB_SERVICE" \
   --platform managed \
   --image "$WEB_IMAGE" \
   --service-account "$WEB_RUNTIME_SA" \
-  --allow-unauthenticated \
+  --no-invoker-iam-check \
   --ingress all \
   --port 3000 \
   --cpu 1 \
