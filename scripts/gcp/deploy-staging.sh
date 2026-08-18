@@ -105,8 +105,56 @@ gcloud run services update "$API_SERVICE" \
   --update-env-vars "WEB_BASE_URL=${WEB_URL},CORS_ALLOWED_ORIGINS=${WEB_URL}" \
   --quiet >/dev/null
 
-curl --fail --silent --show-error "${WEB_URL}/api/healthz" >/dev/null
-curl --fail --silent --show-error "${WEB_URL}/api/backend/readyz" >/dev/null
+wait_for_http_200() {
+  local name="$1"
+  local url="$2"
+  local attempts="$3"
+  local delay_seconds="$4"
+  local attempt status body_file
+
+  body_file="$(mktemp)"
+
+  for ((attempt = 1; attempt <= attempts; attempt++)); do
+    status="$(
+      curl --silent --show-error \
+        --output "$body_file" \
+        --write-out '%{http_code}' \
+        "$url" || true
+    )"
+
+    if [[ "$status" == "200" ]]; then
+      echo "${name} is ready."
+      rm -f "$body_file"
+      return 0
+    fi
+
+    echo "${name} returned HTTP ${status:-000} (attempt ${attempt}/${attempts})."
+
+    if ((attempt < attempts)); then
+      sleep "$delay_seconds"
+    fi
+  done
+
+  echo "${name} did not become ready after ${attempts} attempts." >&2
+  sed -n '1,20p' "$body_file" >&2 || true
+  rm -f "$body_file"
+  return 1
+}
+
+# Public access and new revisions can take a short time to become reachable.
+wait_for_http_200 \
+  "RentStage web" \
+  "${WEB_URL}/api/healthz" \
+  12 \
+  5
+
+# The API invoker binding is eventually consistent. On the first deployment,
+# Cloud Run can temporarily reject the web runtime identity with HTTP 403.
+wait_for_http_200 \
+  "RentStage private API through the web proxy" \
+  "${WEB_URL}/api/backend/readyz" \
+  60 \
+  10
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
