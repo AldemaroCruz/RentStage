@@ -53,6 +53,9 @@ resource "google_service_account" "web_runtime" {
   depends_on   = [google_project_service.required]
 }
 
+# Staging temporarily keeps a public IPv4 address for the Cloud SQL connector.
+# Direct connections are rejected, TLS is required, and no authorized networks exist.
+#trivy:ignore:AVD-GCP-0017:exp:2026-10-31
 resource "google_sql_database_instance" "postgres" {
   project             = var.project_id
   name                = local.sql_instance_name
@@ -68,6 +71,7 @@ resource "google_sql_database_instance" "postgres" {
     disk_size                   = 20
     disk_autoresize             = true
     deletion_protection_enabled = var.deletion_protection
+    connector_enforcement       = "REQUIRED"
 
     backup_configuration {
       enabled                        = true
@@ -82,6 +86,7 @@ resource "google_sql_database_instance" "postgres" {
 
     ip_configuration {
       ipv4_enabled = true
+      ssl_mode     = "ENCRYPTED_ONLY"
     }
 
     maintenance_window {

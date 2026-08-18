@@ -14,8 +14,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY firebase.json entrypoint.sh ./
-RUN chmod +x /app/entrypoint.sh
+COPY --chown=node:node firebase.json entrypoint.sh ./
+RUN chmod +x /app/entrypoint.sh \
+    && mkdir -p /data \
+    && chown node:node /data
 
 EXPOSE 9099 4000
+USER node
 ENTRYPOINT ["/app/entrypoint.sh"]

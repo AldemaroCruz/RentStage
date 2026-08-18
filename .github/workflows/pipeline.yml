@@ -47,13 +47,7 @@ jobs:
       - name: Validate shell and PowerShell helpers
         run: |
           shellcheck -x scripts/ci/*.sh scripts/gcp/*.sh scripts/bootstrap-gcp-staging.sh
-          for script in scripts/*.ps1 scripts/lib/*.ps1; do
-            pwsh -NoLogo -NoProfile -Command '
-              $errors = $null
-              [void][System.Management.Automation.Language.Parser]::ParseFile($args[0], [ref]$null, [ref]$errors)
-              if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
-            ' "$script"
-          done
+          pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/ci/check-powershell-syntax.ps1
           pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/test-smoke-common.ps1
 
   api-unit:
