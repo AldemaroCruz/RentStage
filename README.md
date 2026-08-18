@@ -1,10 +1,20 @@
-# RentStage Starter v0.13.6
+# RentStage Starter v0.14.0
 
-> **Demo Readiness** release: local development remains Docker Compose on localhost, while the keyless GitHub Actions pipeline validates, secures, builds, deploys, rolls back, and smoke-tests the single Google Cloud staging environment.
+> **Demo comercial para CONAMYPE**: un recorrido guiado conecta inventario, cotización, reserva, facturación y cobro sobre un escenario coherente, desplegable y verificable. WhatsApp + AI permanece presentado como hoja de ruta, no como automatización productiva.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
 
-## New in v0.13.6
+## New in v0.14.0
+
+- Adds an authenticated seven-minute commercial walkthrough with live readiness checks over the real RentStage modules.
+- Adds a coherent, idempotent demo storyline: accepted quote, confirmed reservation, issued invoice, and partial bank-transfer payment.
+- Links the dashboard and navigation directly to the guided presentation and the tenant's public catalog.
+- Makes the product boundary explicit: DTE is safe only as `MOCK / TEST`, while WhatsApp + AI remains roadmap.
+- Adds focused readiness unit tests and release-specific upgrade and validation documentation.
+
+This release adds no schema migration, API endpoint, GCP resource, environment variable, or permission. When demo seeding is enabled, it adds stable commercial records to the demo tenant through the existing seed mechanism.
+
+## Included from v0.13.6
 
 - Keeps the documented local owner credentials available only when the web build explicitly uses the Firebase Authentication emulator.
 - Starts non-local login forms empty and never renders the local password in staging HTML.
@@ -506,6 +516,8 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Documentation
 
+- `docs/UPGRADE-0.14.0.md`
+- `docs/VALIDATION-0.14.0.md`
 - `docs/UPGRADE-0.13.6.md`
 - `docs/VALIDATION-0.13.6.md`
 - `docs/STAGING-CICD.md`
@@ -531,4 +543,4 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Next increment
 
-After staging is running, use a closed-beta tenant to choose the next operational release from real usage. The likely candidates are transactional notifications/documents, CSV onboarding, or warehouse mobile/QR. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.
+Use the v0.14.0 guided presentation with prospective users and CONAMYPE to record which step produces the strongest value signal. Candidate increments remain transactional notifications/documents, CSV onboarding, warehouse mobile/QR, and a controlled WhatsApp intake pilot. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.

@@ -52,10 +52,10 @@ export default function DashboardPage() {
         <div>
           <p className="eyebrow light-eyebrow">OVERVIEW</p>
           <h2>Tu operación, en una sola vista.</h2>
-          <p>Inventario, clientes, cotizaciones y reservas conectados en una sola operación preparada para WhatsApp AI.</p>
+          <p>Inventario, clientes, cotizaciones, reservas y cobros conectados en una sola operación demostrable.</p>
         </div>
-        <Link href="/calendar" className="button button-light">
-          Abrir calendario <span>→</span>
+        <Link href="/demo" className="button button-light">
+          Iniciar demo <span>→</span>
         </Link>
         <span className="welcome-orb welcome-orb-one" />
         <span className="welcome-orb welcome-orb-two" />
@@ -187,11 +187,11 @@ export default function DashboardPage() {
       <section className="future-strip">
         <span className="future-icon">✦</span>
         <div>
-          <p className="eyebrow">OPERACIÓN INTEGRADA · DEMO READY</p>
-          <h3>La operación comercial y de almacén ya está conectada</h3>
-          <p>Catálogo público, cotizaciones, reservas, inventario, facturación y pagos funcionan sobre una base multiempresa con roles y auditoría. DTE permanece claramente identificado como MOCK / TEST.</p>
+          <p className="eyebrow">DEMO COMERCIAL · RECORRIDO GUIADO</p>
+          <h3>Presenta la operación completa en siete minutos</h3>
+          <p>Recorre catálogo, cotización, reserva, inventario, factura y cobro con un escenario coherente. DTE permanece claramente identificado como MOCK / TEST.</p>
         </div>
-        <span className="future-status">v0.13.6</span>
+        <Link className="future-status" href="/demo">v0.14.0 →</Link>
       </section>
     </div>
   );

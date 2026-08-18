@@ -16,6 +16,7 @@ function isPublicPath(pathname: string): boolean {
 
 function requiredPermission(pathname: string): Permission | null {
   if (pathname === "/") return "operations.read";
+  if (pathname === "/demo") return "operations.read";
   if (pathname === "/calendar") return "operations.read";
   if (pathname === "/audit") return "audit.read";
   if (pathname === "/categories") return "catalog.read";

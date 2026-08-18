@@ -216,6 +216,19 @@ INSERT INTO quotes (
     117.00, 0.00, 25.00, 142.00,
     'Cotización enviada por el equipo comercial.',
     NOW() + INTERVAL '5 days'
+  ),
+  (
+    '50000000-0000-0000-0000-000000000003',
+    '00000000-0000-0000-0000-000000000001',
+    '40000000-0000-0000-0000-000000000002',
+    NOW() + INTERVAL '20 days 2 hours',
+    NOW() + INTERVAL '20 days 10 hours',
+    'ACCEPTED',
+    'Fiesta empresarial para 100 personas',
+    'San Salvador',
+    331.00, 32.00, 0.00, 299.00,
+    'Paquete Fiesta aceptado. Caso demostrativo v0.14.0 para el recorrido comercial.',
+    NOW() + INTERVAL '10 days'
   )
 ON CONFLICT (id) DO NOTHING;
 
@@ -257,6 +270,41 @@ INSERT INTO quote_items (
     '50000000-0000-0000-0000-000000000002',
     '20000000-0000-0000-0000-000000000004',
     'Shure SM58', 4, 8.00, 0.00, 32.00
+  ),
+  (
+    '60000000-0000-0000-0000-000000000006',
+    '00000000-0000-0000-0000-000000000001',
+    '50000000-0000-0000-0000-000000000003',
+    '20000000-0000-0000-0000-000000000001',
+    'Sistema principal JBL PRX815W', 2, 40.00, 0.00, 80.00
+  ),
+  (
+    '60000000-0000-0000-0000-000000000007',
+    '00000000-0000-0000-0000-000000000001',
+    '50000000-0000-0000-0000-000000000003',
+    '20000000-0000-0000-0000-000000000002',
+    'Refuerzo de bajos QSC KS118', 2, 65.00, 0.00, 130.00
+  ),
+  (
+    '60000000-0000-0000-0000-000000000008',
+    '00000000-0000-0000-0000-000000000001',
+    '50000000-0000-0000-0000-000000000003',
+    '20000000-0000-0000-0000-000000000003',
+    'Mezcladora Behringer X32 Compact', 1, 85.00, 0.00, 85.00
+  ),
+  (
+    '60000000-0000-0000-0000-000000000009',
+    '00000000-0000-0000-0000-000000000001',
+    '50000000-0000-0000-0000-000000000003',
+    '20000000-0000-0000-0000-000000000004',
+    'Micrófonos Shure SM58', 2, 8.00, 0.00, 16.00
+  ),
+  (
+    '60000000-0000-0000-0000-000000000010',
+    '00000000-0000-0000-0000-000000000001',
+    '50000000-0000-0000-0000-000000000003',
+    '20000000-0000-0000-0000-000000000005',
+    'Cableado básico de señal y energía', 1, 20.00, 0.00, 20.00
   )
 ON CONFLICT (id) DO NOTHING;
 
@@ -394,3 +442,127 @@ VALUES
   ('00000000-0000-0000-0000-000000000001', 'EXEMPT', 'Venta exenta', 'EXEMPT', 0.00, TRUE, FALSE),
   ('00000000-0000-0000-0000-000000000001', 'NON_TAXABLE', 'Venta no sujeta', 'NON_TAXABLE', 0.00, TRUE, FALSE)
 ON CONFLICT (tenant_id, code) DO NOTHING;
+
+-- v0.14.0 commercial demo storyline. This intentionally uses the same tables
+-- and constraints as the product: accepted quote -> confirmed reservation ->
+-- issued invoice -> partial payment. Stable IDs keep local and staging seeds
+-- idempotent while presenting a coherent, inspectable business case.
+INSERT INTO reservations (
+  id, tenant_id, customer_id, quote_id, source,
+  block_start_at, block_end_at, event_start_at, event_end_at,
+  status, event_type, event_location,
+  subtotal, discount_amount, extra_charges, total, notes
+) VALUES (
+  '80000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '40000000-0000-0000-0000-000000000002',
+  '50000000-0000-0000-0000-000000000003',
+  'QUOTE',
+  NOW() + INTERVAL '20 days',
+  NOW() + INTERVAL '20 days 12 hours',
+  NOW() + INTERVAL '20 days 2 hours',
+  NOW() + INTERVAL '20 days 10 hours',
+  'CONFIRMED',
+  'Fiesta empresarial para 100 personas',
+  'San Salvador',
+  331.00, 32.00, 0.00, 299.00,
+  'Escenario comercial v0.14.0: reserva confirmada desde una cotización aceptada.'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO reservation_items (
+  id, tenant_id, reservation_id, resource_id, quote_item_id,
+  description, quantity, unit_price, discount_amount, line_total
+) VALUES
+  ('81000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000006', 'Sistema principal JBL PRX815W', 2, 40.00, 0.00, 80.00),
+  ('81000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000007', 'Refuerzo de bajos QSC KS118', 2, 65.00, 0.00, 130.00),
+  ('81000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000003', '60000000-0000-0000-0000-000000000008', 'Mezcladora Behringer X32 Compact', 1, 85.00, 0.00, 85.00),
+  ('81000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000004', '60000000-0000-0000-0000-000000000009', 'Micrófonos Shure SM58', 2, 8.00, 0.00, 16.00),
+  ('81000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000005', '60000000-0000-0000-0000-000000000010', 'Cableado básico de señal y energía', 1, 20.00, 0.00, 20.00)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO reservation_status_history (
+  id, tenant_id, reservation_id, from_status, to_status, actor_id, note
+) VALUES (
+  '82000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '80000000-0000-0000-0000-000000000001',
+  'PENDING', 'CONFIRMED', 'seed:v0.14.0',
+  'Confirmada para el recorrido comercial de RentStage.'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO invoices (
+  id, tenant_id, customer_id, quote_id, reservation_id, source_type,
+  invoice_number, invoice_prefix, status, issue_date, due_date, currency,
+  prices_include_tax, customer_name, customer_email, customer_phone,
+  seller_legal_name, seller_trade_name, seller_address, seller_email, seller_phone,
+  taxable_amount, exempt_amount, non_taxable_amount, tax_amount,
+  total_amount, paid_amount, fiscal_status, notes, terms, issued_at
+) VALUES (
+  '90000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '40000000-0000-0000-0000-000000000002',
+  '50000000-0000-0000-0000-000000000003',
+  '80000000-0000-0000-0000-000000000001',
+  'RESERVATION',
+  140001, 'INV', 'PARTIALLY_PAID', CURRENT_DATE, CURRENT_DATE + 7, 'USD',
+  TRUE, 'Eventos Marea', 'maria@eventosmarea.example', '+50372345678',
+  'AudioPro Demo, S.A. de C.V.', 'AudioPro Demo', 'San Salvador, El Salvador',
+  'hello@audiopro.demo', '+503 7000-0000',
+  264.60, 0.00, 0.00, 34.40, 299.00, 150.00,
+  'READY_FOR_DTE',
+  'Factura demostrativa asociada a la reserva del Paquete Fiesta.',
+  'Saldo pendiente antes de la entrega del equipo.',
+  NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO invoice_items (
+  id, tenant_id, invoice_id, tax_rule_id, description,
+  quantity, unit_price, discount_amount, gross_amount, net_amount,
+  tax_code, tax_category, tax_rate, tax_amount, line_total, sort_order
+)
+SELECT
+  '91000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '90000000-0000-0000-0000-000000000001',
+  rule.id,
+  'Paquete Fiesta 100 personas',
+  1, 299.00, 0.00, 299.00, 264.60,
+  rule.code, rule.category, rule.rate, 34.40, 299.00, 0
+FROM tax_rules rule
+WHERE rule.tenant_id = '00000000-0000-0000-0000-000000000001'
+  AND rule.code = 'IVA'
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO payments (
+  id, tenant_id, customer_id, status, amount, currency, method,
+  reference, notes, received_at
+) VALUES (
+  '92000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '40000000-0000-0000-0000-000000000002',
+  'CONFIRMED', 150.00, 'USD', 'BANK_TRANSFER',
+  'DEMO-CONAMYPE', 'Anticipo del 50% del Paquete Fiesta.', NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO payment_allocations (
+  id, tenant_id, payment_id, invoice_id, amount
+) VALUES (
+  '93000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '92000000-0000-0000-0000-000000000001',
+  '90000000-0000-0000-0000-000000000001',
+  150.00
+)
+ON CONFLICT (tenant_id, payment_id, invoice_id) DO NOTHING;
+
+INSERT INTO invoice_events (
+  id, tenant_id, invoice_id, event_type, actor_id, metadata
+) VALUES
+  ('95000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001', 'CREATED', 'seed:v0.14.0', '{"source_type":"RESERVATION","demo":true}'::jsonb),
+  ('95000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001', 'ISSUED', 'seed:v0.14.0', '{"invoice_number":140001,"demo":true}'::jsonb),
+  ('95000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001', 'PAYMENT_APPLIED', 'seed:v0.14.0', '{"payment_id":"92000000-0000-0000-0000-000000000001","amount":150,"demo":true}'::jsonb)
+ON CONFLICT (id) DO NOTHING;

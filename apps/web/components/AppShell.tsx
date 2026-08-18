@@ -76,6 +76,7 @@ type NavItem = { href: string; label: string; icon: IconName; permission?: Permi
 
 const operationsNavigation: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "dashboard", permission: "operations.read" },
+  { href: "/demo", label: "Demo guiada", icon: "sparkles", permission: "operations.read" },
   { href: "/calendar", label: "Calendario", icon: "calendar", permission: "operations.read" },
   { href: "/packages", label: "Paquetes", icon: "packages", permission: "package.read" },
   { href: "/quotes", label: "Cotizaciones", icon: "quotes", permission: "quote.read" },
@@ -105,6 +106,7 @@ const systemNavigation: NavItem[] = [
 ];
 
 function pageTitle(pathname: string): string {
+  if (pathname === "/demo") return "Demo comercial";
   if (pathname === "/calendar") return "Calendario operacional";
   if (pathname === "/reservations/new") return "Nueva reserva";
   if (pathname.startsWith("/reservations/")) return "Detalle de reserva";

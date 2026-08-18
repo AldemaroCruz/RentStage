@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.14.0 — Guided commercial demo
+
+### Added
+
+- Adds a seven-minute authenticated demo route that verifies and presents the live inventory → quote → reservation → invoice → payment journey.
+- Adds a coherent idempotent seed scenario for Eventos Marea: an accepted $299 package quote, confirmed reservation, issued invoice, and $150 partial payment.
+- Adds guided navigation, presenter talking points, public-catalog access, commercial metrics, and focused readiness unit coverage.
+
+### Changed
+
+- Makes the dashboard entry point and release strip lead directly to the commercial walkthrough.
+- Presents WhatsApp + AI as a controlled roadmap differentiator and preserves DTE as an explicit MOCK / TEST boundary.
+- Cleans generated TypeScript and accidentally pasted PowerShell content from `.gitignore` hygiene.
+- Synchronizes `VERSION`, the web package version, README title, and release documentation at 0.14.0.
+
+### Compatibility
+
+- No database schema migration, API endpoint, GCP resource, environment variable, or permission change.
+- With `SEED_DEMO_DATA=true`, the existing seed runner inserts stable demo-tenant commercial records; production environments with seeding disabled are unchanged.
+- Seeded records are idempotent and survive an application-image rollback. Use a disposable demo tenant or reset the local database volume when a completely clean dataset is required.
+
 ## 0.13.6 — Demo readiness and environment-safe login
 
 ### Changed
