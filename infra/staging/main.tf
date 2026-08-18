@@ -216,6 +216,13 @@ resource "google_identity_platform_config" "rentstage" {
       enabled           = true
       password_required = true
     }
+
+    # Identity Platform materializes this disabled default.
+    # Declaring it prevents perpetual Terraform drift.
+    phone_number {
+      enabled            = false
+      test_phone_numbers = {}
+    }
   }
 
   authorized_domains = distinct(concat([
