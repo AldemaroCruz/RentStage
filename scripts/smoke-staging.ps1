@@ -91,8 +91,10 @@ catch {
     if (-not $_.Exception.Response) { throw }
     $directStatus = [int]$_.Exception.Response.StatusCode
 }
-if ($directStatus -notin @(401, 403)) {
-    throw "Direct anonymous API access returned HTTP $directStatus; expected 401 or 403."
+# Depending on the Cloud Run URL and authentication boundary, an anonymous
+# request can be rejected as Unauthorized, Forbidden, or concealed as Not Found.
+if ($directStatus -notin @(401, 403, 404)) {
+    throw "Direct anonymous API access returned HTTP $directStatus; expected 401, 403, or 404."
 }
 
 Write-Host "==> Checking Quote Portal response protections" -ForegroundColor Cyan
