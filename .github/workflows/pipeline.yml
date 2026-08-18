@@ -50,6 +50,27 @@ jobs:
           pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/ci/check-powershell-syntax.ps1
           pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/test-smoke-common.ps1
 
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [go, javascript-typescript]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: github/codeql-action/init@v4.37.7
+        with:
+          languages: ${{ matrix.language }}
+      - uses: github/codeql-action/autobuild@v4.37.7
+      - uses: github/codeql-action/analyze@v4.37.7
+        with:
+          category: /language:${{ matrix.language }}
   api-unit:
     name: API unit, race, and vet
     runs-on: ubuntu-24.04
@@ -225,9 +246,13 @@ jobs:
 
   deploy-staging:
     name: Deploy and smoke staging
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      vars.STAGING_DEPLOY_ENABLED == 'true'
     needs:
       - repository-validation
+      - codeql
       - api-unit
       - web-unit
       - terraform-validation

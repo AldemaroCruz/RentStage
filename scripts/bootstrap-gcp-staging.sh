@@ -35,7 +35,7 @@ for role in \
   roles/artifactregistry.admin roles/cloudsql.admin roles/secretmanager.admin \
   roles/resourcemanager.projectIamAdmin roles/iam.serviceAccountAdmin \
   roles/serviceusage.serviceUsageAdmin roles/firebase.admin roles/identityplatform.admin \
-  roles/serviceusage.apiKeysAdmin roles/storage.admin; do
+  roles/serviceusage.apiKeysAdmin; do
   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:${INFRA_SA}" --role="$role" --condition=None --quiet >/dev/null
 done
 
@@ -43,7 +43,7 @@ if ! gcloud storage buckets describe "gs://${STATE_BUCKET}" >/dev/null 2>&1; the
   gcloud storage buckets create "gs://${STATE_BUCKET}" --project "$PROJECT_ID" --location "$REGION" --uniform-bucket-level-access
 fi
 gcloud storage buckets update "gs://${STATE_BUCKET}" --versioning --public-access-prevention
-gcloud storage buckets add-iam-policy-binding "gs://${STATE_BUCKET}" --member="serviceAccount:${INFRA_SA}" --role="roles/storage.admin" >/dev/null
+gcloud storage buckets add-iam-policy-binding "gs://${STATE_BUCKET}" --member="serviceAccount:${INFRA_SA}" --role="roles/storage.objectAdmin" >/dev/null
 
 if ! gcloud iam workload-identity-pools describe "$POOL_ID" --location=global >/dev/null 2>&1; then
   gcloud iam workload-identity-pools create "$POOL_ID" --location=global --display-name="GitHub Actions"
@@ -83,8 +83,8 @@ STAGING_DATABASE_PASSWORD=<24-64 random alphanumeric characters>
 STAGING_SMOKE_EMAIL=owner@rentstage.local
 STAGING_SMOKE_PASSWORD=<at least 12 characters>
 
-Repository variables for optional GitHub paid security features:
-ENABLE_CODEQL=false
+Repository variables:
+STAGING_DEPLOY_ENABLED=false
 ENABLE_DEPENDENCY_REVIEW=false
 
 The WIF condition is bound to repository ID ${REPO_ID}, owner ID ${OWNER_ID}, refs/heads/main, and the staging environment.
