@@ -1,8 +1,14 @@
-# RentStage Starter v0.14.0
+# RentStage Starter v0.14.1
 
 > **Demo comercial para CONAMYPE**: un recorrido guiado conecta inventario, cotización, reserva, facturación y cobro sobre un escenario coherente, desplegable y verificable. WhatsApp + AI permanece presentado como hoja de ruta, no como automatización productiva.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## Fixed in v0.14.1
+
+- Keeps the sidebar inside the dynamic viewport and makes its navigation independently scrollable on short desktop windows and mobile devices.
+- Keeps the workspace switcher visible at the bottom while preserving access to every operations, inventory, finance, and system option.
+- Adds a subtle cross-browser scrollbar and touch momentum without changing permissions, routes, or application data.
 
 ## New in v0.14.0
 

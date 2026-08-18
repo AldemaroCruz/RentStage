@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.14.1 — Scrollable application navigation
+
+### Fixed
+
+- Constrains the sidebar to the dynamic viewport so long navigation menus no longer extend below the visible window.
+- Makes the navigation region independently scrollable with mouse, keyboard, and touch while keeping the brand and workspace switcher visible.
+- Adds a subtle cross-browser scrollbar and prevents scroll chaining from the menu into the page.
+
+### Compatibility
+
+- No database, API, infrastructure, permission, route, or seed change.
+- Existing sessions and staging data remain unchanged.
+
 ## 0.14.0 — Guided commercial demo
 
 ### Added
