@@ -94,6 +94,18 @@ try {
         throw "The future smoke period should have package availability."
     }
 
+    Write-Step "Linking the conversation to a tenant-scoped customer"
+    $linked = Invoke-RestMethod `
+        -Method Post `
+        -Uri "$ApiBase/api/v1/assistant/conversations/$($conversation.id)/customer" `
+        -WebSession $webSession `
+        -Headers $headers `
+        -ContentType "application/json" `
+        -Body (@{ customer_id = $customer.id } | ConvertTo-Json)
+    if ($linked.customer_id -ne $customer.id) {
+        throw "The assistant conversation was not linked to the selected customer."
+    }
+
     Write-Step "Approving the response and creating a quote draft"
     $approvalBody = @{
         customer_id = $customer.id
@@ -121,6 +133,73 @@ try {
     }
     if ($quote.reservation_id) {
         throw "Assistant approval must not create a reservation."
+    }
+
+    Write-Step "Delivering the approved response inside the demo channel"
+    $pendingMessages = @(
+        $approved.messages |
+            Where-Object {
+                $_.direction -eq "OUTBOUND" -and
+                $_.status -eq "APPROVED"
+            }
+    )
+    if ($pendingMessages.Count -eq 0) {
+        throw "The approved assistant response was not available for demo delivery."
+    }
+    $pendingMessage = $pendingMessages[-1]
+    $sent = Invoke-RestMethod `
+        -Method Post `
+        -Uri "$ApiBase/api/v1/assistant/conversations/$($conversation.id)/messages/send-demo" `
+        -WebSession $webSession `
+        -Headers $headers `
+        -ContentType "application/json" `
+        -Body (@{
+            message_id = $pendingMessage.id
+            body = $pendingMessage.body
+        } | ConvertTo-Json)
+    $delivered = @(
+        $sent.messages |
+            Where-Object {
+                $_.id -eq $pendingMessage.id -and
+                $_.status -eq "SENT"
+            }
+    )
+    if ($delivered.Count -ne 1) {
+        throw "The approved response was not marked as delivered in the demo channel."
+    }
+
+    Write-Step "Simulating a customer follow-up and reviewing the generated draft"
+    $followUp = Invoke-RestMethod `
+        -Method Post `
+        -Uri "$ApiBase/api/v1/assistant/conversations/$($conversation.id)/messages/receive-demo" `
+        -WebSession $webSession `
+        -Headers $headers `
+        -ContentType "application/json" `
+        -Body (@{ body = "¿Puedo pagar un anticipo para confirmar la fecha?" } | ConvertTo-Json)
+    $followUpDrafts = @(
+        $followUp.messages |
+            Where-Object {
+                $_.direction -eq "OUTBOUND" -and
+                $_.status -eq "DRAFT"
+            }
+    )
+    if ($followUp.status -ne "HUMAN_REVIEW" -or $followUpDrafts.Count -eq 0) {
+        throw "The customer follow-up did not stop at a new human-review draft."
+    }
+
+    $followUpDraft = $followUpDrafts[-1]
+    $followUpSent = Invoke-RestMethod `
+        -Method Post `
+        -Uri "$ApiBase/api/v1/assistant/conversations/$($conversation.id)/messages/send-demo" `
+        -WebSession $webSession `
+        -Headers $headers `
+        -ContentType "application/json" `
+        -Body (@{
+            message_id = $followUpDraft.id
+            body = $followUpDraft.body
+        } | ConvertTo-Json)
+    if ($followUpSent.status -ne "QUOTE_DRAFTED") {
+        throw "The delivered follow-up did not preserve the quote-drafted conversation state."
     }
 
     Write-Step "Closing the server session"

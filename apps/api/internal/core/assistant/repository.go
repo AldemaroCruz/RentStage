@@ -230,8 +230,14 @@ func (r *Repository) Approve(
 	if _, err := tx.Exec(ctx, `
 		UPDATE assistant_messages
 		SET status = 'APPROVED', body = $3, approved_by = NULLIF($4, '')::uuid, approved_at = NOW()
-		WHERE tenant_id = $1 AND conversation_id = $2
-		  AND sender_type = 'ASSISTANT' AND status = 'DRAFT'
+		WHERE id = (
+			SELECT id
+			FROM assistant_messages
+			WHERE tenant_id = $1 AND conversation_id = $2
+			  AND sender_type = 'ASSISTANT' AND status = 'DRAFT'
+			ORDER BY created_at DESC, id DESC
+			LIMIT 1
+		)
 	`, tenantID, conversationID, responseBody, actorID); err != nil {
 		return ConversationDetail{}, fmt.Errorf("approve assistant response: %w", err)
 	}
@@ -240,6 +246,176 @@ func (r *Repository) Approve(
 		return ConversationDetail{}, fmt.Errorf("commit assistant approval: %w", err)
 	}
 	return r.Get(ctx, tenantID, conversationID)
+}
+
+func (r *Repository) LinkCustomer(
+	ctx context.Context,
+	tenantID, conversationID, customerID string,
+) (ConversationDetail, error) {
+	command, err := r.pool.Exec(ctx, `
+		UPDATE assistant_conversations
+		SET customer_id = $3
+		WHERE tenant_id = $1 AND id = $2
+	`, tenantID, conversationID, customerID)
+	if err != nil {
+		return ConversationDetail{}, fmt.Errorf("link assistant customer: %w", err)
+	}
+	if command.RowsAffected() == 0 {
+		return ConversationDetail{}, ErrNotFound
+	}
+	return r.Get(ctx, tenantID, conversationID)
+}
+
+func (r *Repository) SendDemo(
+	ctx context.Context,
+	tenantID, conversationID, messageID, body, actorID string,
+) (ConversationDetail, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return ConversationDetail{}, fmt.Errorf("begin demo message delivery: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := requireDemoConversation(ctx, tx, tenantID, conversationID); err != nil {
+		return ConversationDetail{}, err
+	}
+
+	if messageID == "" {
+		metadata, _ := json.Marshal(map[string]any{
+			"human_approved":     true,
+			"simulated_delivery": true,
+		})
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO assistant_messages (
+				tenant_id, conversation_id, direction, sender_type, provider,
+				body, status, metadata, created_by, approved_by, approved_at
+			) VALUES (
+				$1, $2, 'OUTBOUND', 'USER', 'DEMO', $3, 'SENT', $4::jsonb,
+				NULLIF($5, '')::uuid, NULLIF($5, '')::uuid, NOW()
+			)
+		`, tenantID, conversationID, body, string(metadata), actorID); err != nil {
+			return ConversationDetail{}, fmt.Errorf("insert demo outbound message: %w", err)
+		}
+	} else {
+		command, err := tx.Exec(ctx, `
+			UPDATE assistant_messages
+			SET body = $4, status = 'SENT',
+				approved_by = NULLIF($5, '')::uuid, approved_at = NOW(),
+				metadata = metadata || '{"human_approved":true,"simulated_delivery":true}'::jsonb
+			WHERE tenant_id = $1 AND conversation_id = $2 AND id = $3
+			  AND direction = 'OUTBOUND' AND status IN ('DRAFT', 'APPROVED')
+		`, tenantID, conversationID, messageID, body, actorID)
+		if err != nil {
+			return ConversationDetail{}, fmt.Errorf("send demo assistant message: %w", err)
+		}
+		if command.RowsAffected() == 0 {
+			return ConversationDetail{}, ErrMessageNotReady
+		}
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE assistant_conversations conversation
+		SET status = CASE
+				WHEN EXISTS (
+					SELECT 1 FROM assistant_proposals proposal
+					WHERE proposal.tenant_id = conversation.tenant_id
+					  AND proposal.conversation_id = conversation.id
+					  AND proposal.quote_id IS NOT NULL
+				) THEN 'QUOTE_DRAFTED'
+				ELSE 'OPEN'
+			END,
+			last_message_at = NOW()
+		WHERE conversation.tenant_id = $1 AND conversation.id = $2
+	`, tenantID, conversationID); err != nil {
+		return ConversationDetail{}, fmt.Errorf("update demo delivery status: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return ConversationDetail{}, fmt.Errorf("commit demo message delivery: %w", err)
+	}
+	return r.Get(ctx, tenantID, conversationID)
+}
+
+func (r *Repository) ReceiveDemo(
+	ctx context.Context,
+	tenantID, conversationID, inboundBody, responseDraft string,
+) (ConversationDetail, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return ConversationDetail{}, fmt.Errorf("begin demo inbound message: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := requireDemoConversation(ctx, tx, tenantID, conversationID); err != nil {
+		return ConversationDetail{}, err
+	}
+
+	inboundMetadata, _ := json.Marshal(map[string]any{
+		"simulated_inbound": true,
+	})
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO assistant_messages (
+			tenant_id, conversation_id, direction, sender_type, provider,
+			body, status, metadata
+		) VALUES ($1, $2, 'INBOUND', 'CUSTOMER', 'DEMO', $3, 'RECEIVED', $4::jsonb)
+	`, tenantID, conversationID, inboundBody, string(inboundMetadata)); err != nil {
+		return ConversationDetail{}, fmt.Errorf("insert demo inbound message: %w", err)
+	}
+
+	draftMetadata, _ := json.Marshal(map[string]any{
+		"engine":                  "DEMO_RULES",
+		"human_approval_required": true,
+		"follow_up":               true,
+	})
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO assistant_messages (
+			tenant_id, conversation_id, direction, sender_type, provider,
+			body, status, metadata
+		) VALUES ($1, $2, 'OUTBOUND', 'ASSISTANT', 'DEMO', $3, 'DRAFT', $4::jsonb)
+	`, tenantID, conversationID, responseDraft, string(draftMetadata)); err != nil {
+		return ConversationDetail{}, fmt.Errorf("insert demo follow-up draft: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE assistant_conversations
+		SET status = 'HUMAN_REVIEW', last_message_at = NOW()
+		WHERE tenant_id = $1 AND id = $2
+	`, tenantID, conversationID); err != nil {
+		return ConversationDetail{}, fmt.Errorf("update demo inbound status: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return ConversationDetail{}, fmt.Errorf("commit demo inbound message: %w", err)
+	}
+	return r.Get(ctx, tenantID, conversationID)
+}
+
+type demoConversationQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func requireDemoConversation(
+	ctx context.Context,
+	querier demoConversationQuerier,
+	tenantID, conversationID string,
+) error {
+	var channel string
+	err := querier.QueryRow(ctx, `
+		SELECT channel
+		FROM assistant_conversations
+		WHERE tenant_id = $1 AND id = $2
+		FOR UPDATE
+	`, tenantID, conversationID).Scan(&channel)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("lock demo conversation: %w", err)
+	}
+	if channel != "DEMO" {
+		return ErrDemoOnly
+	}
+	return nil
 }
 
 func (r *Repository) getProposal(ctx context.Context, tenantID, conversationID string) (*Proposal, error) {

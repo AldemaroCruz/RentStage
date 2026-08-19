@@ -158,6 +158,9 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	registerTenant("POST /api/v1/assistant/conversations/simulate", identity.PermissionAssistantManage, assistantHandler.Simulate)
 	registerTenant("GET /api/v1/assistant/conversations/{conversationID}", identity.PermissionAssistantRead, assistantHandler.Get)
 	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/approve", identity.PermissionAssistantManage, assistantHandler.Approve)
+	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/customer", identity.PermissionAssistantManage, assistantHandler.LinkCustomer)
+	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/messages/send-demo", identity.PermissionAssistantManage, assistantHandler.SendDemo)
+	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/messages/receive-demo", identity.PermissionAssistantManage, assistantHandler.ReceiveDemo)
 
 	registerTenant("GET /api/v1/categories", identity.PermissionCatalogRead, catalogHandler.ListCategories)
 	registerTenant("POST /api/v1/categories", identity.PermissionCatalogManage, catalogHandler.CreateCategory)

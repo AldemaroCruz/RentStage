@@ -11,6 +11,8 @@ var (
 	ErrUnavailable     = errors.New("assistant proposal is unavailable")
 	ErrAlreadyApproved = errors.New("assistant proposal is already approved")
 	ErrCustomerMissing = errors.New("assistant customer not found")
+	ErrDemoOnly        = errors.New("assistant operation is only available in demo")
+	ErrMessageNotReady = errors.New("assistant message is not ready to send")
 )
 
 type ConversationSummary struct {
@@ -89,6 +91,19 @@ type SimulateInput struct {
 type ApproveInput struct {
 	CustomerID   string `json:"customer_id"`
 	ResponseBody string `json:"response_body"`
+}
+
+type LinkCustomerInput struct {
+	CustomerID string `json:"customer_id"`
+}
+
+type SendDemoInput struct {
+	MessageID string `json:"message_id"`
+	Body      string `json:"body"`
+}
+
+type ReceiveDemoInput struct {
+	Body string `json:"body"`
 }
 
 type normalizedSimulation struct {

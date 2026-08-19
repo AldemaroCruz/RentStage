@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.15.1 — Interactive WhatsApp demo conversation
+
+### Added
+
+- Adds explicit simulated delivery for human-reviewed outbound messages, without sending anything to a real phone number.
+- Adds repeatable inbound demo follow-ups and deterministic assistant drafts so a presenter can demonstrate a complete multi-turn conversation.
+- Adds tenant-scoped customer linking and an inline create-and-link flow that reuses the existing customer API, validation, `WHATSAPP` source, and audit events.
+- Adds API and smoke coverage for customer linking, first response delivery, customer follow-up, second human-reviewed draft, and follow-up delivery.
+
+### Safety and compatibility
+
+- Real `WHATSAPP` conversations remain blocked from the demo send/receive endpoints; Meta credentials, sender registration, webhooks, templates, and production delivery are intentionally deferred to a separate provider adapter.
+- Every generated response remains a `DRAFT` until an authorized owner, admin, or manager explicitly delivers it in the simulator.
+- Quote approval still creates only a quote in `DRAFT`; no message, reservation, payment, or inventory block occurs automatically.
+- No database migration, GCP resource, environment variable, IAM grant, or real messaging charge is introduced.
+
 ## 0.15.0 — Human-approved WhatsApp sales assistant
 
 ### Added

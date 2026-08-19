@@ -249,6 +249,144 @@ func (s *Service) Approve(
 	return approved, nil, nil
 }
 
+func (s *Service) LinkCustomer(
+	ctx context.Context,
+	tenantID, conversationID string,
+	input LinkCustomerInput,
+) (ConversationDetail, map[string]string, error) {
+	input.CustomerID = strings.TrimSpace(input.CustomerID)
+	if !idutil.IsUUID(input.CustomerID) {
+		return ConversationDetail{}, map[string]string{
+			"customer_id": "Customer ID is invalid.",
+		}, nil
+	}
+	if _, err := s.customerRepository.Get(ctx, tenantID, input.CustomerID); err != nil {
+		if err == customer.ErrNotFound {
+			return ConversationDetail{}, nil, ErrCustomerMissing
+		}
+		return ConversationDetail{}, nil, err
+	}
+	linked, err := s.repository.LinkCustomer(ctx, tenantID, conversationID, input.CustomerID)
+	if err != nil {
+		return ConversationDetail{}, nil, err
+	}
+	_ = s.audit.Record(ctx, tenantID, "ASSISTANT_CUSTOMER_LINKED", "assistant_conversation", &conversationID, map[string]any{
+		"customer_id": input.CustomerID,
+		"channel":     linked.Channel,
+	})
+	return linked, nil, nil
+}
+
+func (s *Service) SendDemo(
+	ctx context.Context,
+	tenantID, conversationID string,
+	input SendDemoInput,
+) (ConversationDetail, map[string]string, error) {
+	input.MessageID = strings.TrimSpace(input.MessageID)
+	input.Body = strings.TrimSpace(input.Body)
+	fields := map[string]string{}
+	if input.MessageID != "" && !idutil.IsUUID(input.MessageID) {
+		fields["message_id"] = "Message ID is invalid."
+	}
+	if input.Body == "" || len(input.Body) > 2000 {
+		fields["body"] = "Message must contain between 1 and 2,000 characters."
+	}
+	if len(fields) > 0 {
+		return ConversationDetail{}, fields, nil
+	}
+
+	detail, err := s.repository.SendDemo(
+		ctx,
+		tenantID,
+		conversationID,
+		input.MessageID,
+		input.Body,
+		webutil.ActorID(ctx),
+	)
+	if err != nil {
+		return ConversationDetail{}, nil, err
+	}
+	_ = s.audit.Record(ctx, tenantID, "ASSISTANT_DEMO_MESSAGE_SENT", "assistant_conversation", &conversationID, map[string]any{
+		"channel":             "DEMO",
+		"message_id":          input.MessageID,
+		"simulated_delivery":  true,
+		"real_phone_delivery": false,
+	})
+	return detail, nil, nil
+}
+
+func (s *Service) ReceiveDemo(
+	ctx context.Context,
+	tenantID, conversationID string,
+	input ReceiveDemoInput,
+) (ConversationDetail, map[string]string, error) {
+	input.Body = strings.TrimSpace(input.Body)
+	if input.Body == "" || len(input.Body) > 2000 {
+		return ConversationDetail{}, map[string]string{
+			"body": "Message must contain between 1 and 2,000 characters.",
+		}, nil
+	}
+	detail, err := s.repository.Get(ctx, tenantID, conversationID)
+	if err != nil {
+		return ConversationDetail{}, nil, err
+	}
+	if detail.Channel != "DEMO" {
+		return ConversationDetail{}, nil, ErrDemoOnly
+	}
+
+	responseDraft := draftDemoReply(detail, input.Body)
+	received, err := s.repository.ReceiveDemo(
+		ctx,
+		tenantID,
+		conversationID,
+		input.Body,
+		responseDraft,
+	)
+	if err != nil {
+		return ConversationDetail{}, nil, err
+	}
+	_ = s.audit.Record(ctx, tenantID, "ASSISTANT_DEMO_REPLY_SIMULATED", "assistant_conversation", &conversationID, map[string]any{
+		"channel":                 "DEMO",
+		"draft_created":           true,
+		"human_approval_required": true,
+	})
+	return received, nil, nil
+}
+
+func draftDemoReply(detail ConversationDetail, inboundBody string) string {
+	contactName := strings.TrimSpace(detail.ContactName)
+	if contactName == "" {
+		contactName = "cliente"
+	}
+	context := strings.ToLower(inboundBody)
+	prefix := fmt.Sprintf("Gracias por el seguimiento, %s. ", contactName)
+
+	var response string
+	switch {
+	case strings.Contains(context, "descuento"), strings.Contains(context, "precio"), strings.Contains(context, "costo"):
+		response = "Podemos revisar las condiciones comerciales antes de enviarte la versión final; por ahora la cotización permanece como borrador y no reserva inventario."
+	case strings.Contains(context, "disponib"), strings.Contains(context, "fecha"), strings.Contains(context, "hora"):
+		response = "El período propuesto sigue registrado, pero nuestro equipo confirmará nuevamente la disponibilidad antes de convertir la cotización en reserva."
+	case strings.Contains(context, "pago"), strings.Contains(context, "depósito"), strings.Contains(context, "deposito"), strings.Contains(context, "anticipo"):
+		response = "Podemos acordar el anticipo y la forma de pago dentro del flujo formal de cotización; nada se cobrará ni reservará desde este chat."
+	case strings.Contains(context, "incluye"), strings.Contains(context, "equipo"), strings.Contains(context, "paquete"):
+		response = "La propuesta conserva el paquete y sus recursos configurados; nuestro equipo puede detallar cada componente antes de enviarte la cotización."
+	case strings.Contains(context, "gracias"), strings.Contains(context, "listo"), strings.Contains(context, "perfecto"):
+		response = "Con gusto. Dejaremos el seguimiento preparado para que una persona del equipo confirme el siguiente paso contigo."
+	default:
+		response = "Una persona del equipo revisará tu mensaje y podrá ajustar la propuesta antes de responderte."
+	}
+
+	if detail.Proposal != nil && detail.Proposal.QuoteNumber != nil {
+		response = fmt.Sprintf(
+			"La cotización COT-%06d continúa en borrador. %s",
+			*detail.Proposal.QuoteNumber,
+			response,
+		)
+	}
+	return prefix + response
+}
+
 type rankedPackage struct {
 	item  packages.Summary
 	score int

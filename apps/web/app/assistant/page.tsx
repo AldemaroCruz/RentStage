@@ -8,6 +8,7 @@ import { formatCurrency, formatDateTime, formatQuoteNumber } from "@/lib/format"
 import type {
   AssistantConversationDetail,
   AssistantConversationSummary,
+  AssistantMessage,
   Customer,
 } from "@/lib/types";
 
@@ -21,6 +22,14 @@ function statusLabel(value: AssistantConversationSummary["status"]): string {
   if (value === "QUOTE_DRAFTED") return "Cotización creada";
   if (value === "CLOSED") return "Cerrada";
   return "Abierta";
+}
+
+function messageLabel(message: AssistantMessage): string {
+  if (message.direction === "INBOUND") return "CLIENTE · MENSAJE SIMULADO";
+  if (message.status === "DRAFT") return "ASISTENTE · BORRADOR NO ENVIADO";
+  if (message.status === "APPROVED") return "EQUIPO · APROBADO Y PENDIENTE";
+  if (message.status === "SENT") return "EQUIPO · ENTREGADO EN EL SIMULADOR";
+  return "EQUIPO";
 }
 
 const initialStart = new Date();
@@ -40,20 +49,40 @@ const initialSimulation = {
   end_at: localInput(initialEnd),
 };
 
+const emptyCustomerDraft = {
+  first_name: "",
+  last_name: "",
+  phone: "",
+  email: "",
+  company_name: "",
+};
+
 export default function AssistantPage() {
   const { can } = useAuth();
   const canManage = can("assistant.manage");
+  const canManageCustomers = can("customer.manage");
   const [items, setItems] = useState<AssistantConversationSummary[]>([]);
   const [detail, setDetail] = useState<AssistantConversationDetail | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerID, setCustomerID] = useState("");
   const [responseBody, setResponseBody] = useState("");
+  const [sendBody, setSendBody] = useState("");
+  const [incomingBody, setIncomingBody] = useState("");
+  const [customerDraft, setCustomerDraft] = useState(emptyCustomerDraft);
+  const [customerCreatorOpen, setCustomerCreatorOpen] = useState(false);
+  const [incomingOpen, setIncomingOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
   const [simulation, setSimulation] = useState(initialSimulation);
+
+  const pendingMessage = useMemo(() => {
+    if (!detail) return undefined;
+    return [...detail.messages].reverse().find((message) =>
+      message.direction === "OUTBOUND" && ["DRAFT", "APPROVED"].includes(message.status));
+  }, [detail]);
 
   async function loadList(preferredID?: string) {
     const response = await api<{ items: AssistantConversationSummary[] }>("/api/v1/assistant/conversations");
@@ -65,6 +94,12 @@ export default function AssistantPage() {
     } else {
       setDetail(null);
     }
+  }
+
+  async function loadCustomers(preferredID?: string) {
+    const response = await api<{ items: Customer[] }>("/api/v1/customers");
+    setCustomers(response.items);
+    if (preferredID) setCustomerID(preferredID);
   }
 
   useEffect(() => {
@@ -85,8 +120,15 @@ export default function AssistantPage() {
 
   useEffect(() => {
     setResponseBody(detail?.proposal?.response_draft || "");
+    setSendBody(pendingMessage?.body || "");
     setCustomerID(detail?.customer_id || customers[0]?.id || "");
-  }, [detail, customers]);
+    setCustomerDraft({
+      ...emptyCustomerDraft,
+      first_name: detail?.contact_name || "",
+      phone: detail?.contact_phone || "",
+    });
+    setCustomerCreatorOpen(false);
+  }, [detail?.id, detail?.updated_at, pendingMessage?.id, customers]);
 
   async function selectConversation(id: string) {
     setWorking(true);
@@ -127,6 +169,63 @@ export default function AssistantPage() {
     }
   }
 
+  async function linkCustomer(selectedCustomerID = customerID) {
+    if (!detail || !selectedCustomerID) return;
+    setWorking(true);
+    setError("");
+    setNotice("");
+    try {
+      const linked = await api<AssistantConversationDetail>(`/api/v1/assistant/conversations/${detail.id}/customer`, {
+        method: "POST",
+        body: JSON.stringify({ customer_id: selectedCustomerID }),
+      });
+      setCustomerID(selectedCustomerID);
+      setDetail(linked);
+      setNotice("El cliente quedó vinculado a la conversación dentro de este workspace.");
+      await loadList(linked.id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No fue posible vincular el cliente.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function createCustomer(event: FormEvent) {
+    event.preventDefault();
+    if (!detail) return;
+    setWorking(true);
+    setError("");
+    setNotice("");
+    try {
+      const created = await api<Customer>("/api/v1/customers", {
+        method: "POST",
+        body: JSON.stringify({
+          ...customerDraft,
+          phone: customerDraft.phone || null,
+          email: customerDraft.email || null,
+          company_name: customerDraft.company_name || null,
+          preferred_language: "es",
+          source: "WHATSAPP",
+          notes: `Creado desde la conversación demo ${detail.id}.`,
+        }),
+      });
+      await loadCustomers(created.id);
+      const linked = await api<AssistantConversationDetail>(`/api/v1/assistant/conversations/${detail.id}/customer`, {
+        method: "POST",
+        body: JSON.stringify({ customer_id: created.id }),
+      });
+      setCustomerID(created.id);
+      setDetail(linked);
+      await loadList(linked.id);
+      setCustomerCreatorOpen(false);
+      setNotice(`${created.display_name} fue creado y vinculado desde el chat.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No fue posible crear el cliente.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function approve() {
     if (!detail) return;
     setWorking(true);
@@ -138,7 +237,7 @@ export default function AssistantPage() {
         body: JSON.stringify({ customer_id: customerID, response_body: responseBody }),
       });
       setDetail(approved);
-      setNotice("Aprobación registrada. Se creó una cotización DRAFT; el inventario continúa sin reservarse.");
+      setNotice("Aprobación registrada. Se creó una cotización DRAFT; ahora puedes entregar la respuesta dentro del simulador.");
       await loadList(approved.id);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "No fue posible crear el borrador.");
@@ -147,9 +246,53 @@ export default function AssistantPage() {
     }
   }
 
+  async function sendDemo() {
+    if (!detail) return;
+    setWorking(true);
+    setError("");
+    setNotice("");
+    try {
+      const sent = await api<AssistantConversationDetail>(`/api/v1/assistant/conversations/${detail.id}/messages/send-demo`, {
+        method: "POST",
+        body: JSON.stringify({ message_id: pendingMessage?.id || "", body: sendBody }),
+      });
+      setDetail(sent);
+      setSendBody("");
+      setNotice("Respuesta entregada únicamente dentro del simulador. No se contactó ningún teléfono real.");
+      await loadList(sent.id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No fue posible enviar la respuesta demo.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function receiveDemo(event: FormEvent) {
+    event.preventDefault();
+    if (!detail) return;
+    setWorking(true);
+    setError("");
+    setNotice("");
+    try {
+      const received = await api<AssistantConversationDetail>(`/api/v1/assistant/conversations/${detail.id}/messages/receive-demo`, {
+        method: "POST",
+        body: JSON.stringify({ body: incomingBody }),
+      });
+      setDetail(received);
+      setIncomingBody("");
+      setIncomingOpen(false);
+      setNotice("El cliente respondió en el simulador. El asistente preparó otro borrador pendiente de revisión humana.");
+      await loadList(received.id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No fue posible simular la respuesta del cliente.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
   const metrics = useMemo(() => ({
     review: items.filter((item) => item.status === "HUMAN_REVIEW").length,
-    drafted: items.filter((item) => item.status === "QUOTE_DRAFTED").length,
+    drafted: items.filter((item) => Boolean(item.quote_id)).length,
     demo: items.filter((item) => item.channel === "DEMO").length,
   }), [items]);
 
@@ -157,9 +300,9 @@ export default function AssistantPage() {
     <div className="page-stack assistant-page">
       <section className="assistant-hero">
         <div>
-          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.15</p>
+          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.15.1</p>
           <h2>Convierte consultas en cotizaciones, con una persona al mando.</h2>
-          <p>El simulador usa clientes, paquetes, precios y disponibilidad reales de RentStage. Meta se conecta después sin cambiar el flujo comercial.</p>
+          <p>Conversa de punta a punta en el canal simulado, crea clientes y valida el proceso comercial antes de conectar Meta.</p>
         </div>
         <div className="assistant-hero-actions">
           <span className="assistant-provider-pill"><i /> CANAL DEMO</span>
@@ -169,8 +312,8 @@ export default function AssistantPage() {
 
       <section className="assistant-boundary-strip">
         <strong>Control humano obligatorio</strong>
-        <span>La sugerencia no se envía sola.</span>
-        <span>La aprobación crea únicamente una cotización DRAFT.</span>
+        <span>Cada borrador requiere que alguien pulse enviar.</span>
+        <span>La entrega DEMO nunca contacta un teléfono real.</span>
         <span>Nunca reserva inventario automáticamente.</span>
       </section>
 
@@ -215,19 +358,31 @@ export default function AssistantPage() {
           {!detail ? <div className="assistant-empty large">Selecciona o simula una conversación.</div> : <>
             <header className="assistant-chat-header">
               <div className="assistant-contact-avatar">{detail.contact_name.slice(0, 2).toUpperCase()}</div>
-              <div><strong>{detail.contact_name}</strong><span>{detail.contact_phone} · {detail.channel === "DEMO" ? "Simulador integrado" : "WhatsApp"}</span></div>
+              <div><strong>{detail.contact_name}</strong><span>{detail.contact_phone} · {detail.customer_name || "contacto sin vincular"}</span></div>
               <em className={`assistant-status ${detail.status.toLowerCase()}`}>{statusLabel(detail.status)}</em>
             </header>
             <div className="assistant-chat-scroll">
               <div className="assistant-chat-day">HOY · DEMOSTRACIÓN</div>
               {detail.messages.map((message) => (
                 <article key={message.id} className={`assistant-bubble ${message.direction === "OUTBOUND" ? "outbound" : "inbound"} ${message.status === "DRAFT" ? "draft" : ""}`}>
-                  {message.sender_type === "ASSISTANT" && <small>✨ ASISTENTE · {message.status === "DRAFT" ? "BORRADOR" : "APROBADO"}</small>}
+                  <small>{messageLabel(message)}</small>
                   <p>{message.body}</p>
                   <time>{formatDateTime(message.created_at)}</time>
                 </article>
               ))}
             </div>
+            {canManage && detail.channel === "DEMO" && <div className="assistant-chat-composer">
+              <label><span>{pendingMessage ? "Revisar borrador antes de enviar" : "Responder como miembro del equipo"}</span><textarea value={sendBody} onChange={(event) => setSendBody(event.target.value)} placeholder="Escribe una respuesta para el cliente…" /></label>
+              <div className="assistant-composer-actions">
+                <small>La entrega ocurre solamente dentro de este chat demo.</small>
+                <button className="button button-primary" onClick={() => void sendDemo()} disabled={working || !sendBody.trim()}>{working ? "Procesando…" : "Enviar respuesta demo"}</button>
+              </div>
+              <button className="assistant-incoming-toggle" onClick={() => setIncomingOpen((value) => !value)}>{incomingOpen ? "Cancelar mensaje del cliente" : "+ Simular respuesta del cliente"}</button>
+              {incomingOpen && <form className="assistant-incoming-form" onSubmit={receiveDemo}>
+                <textarea value={incomingBody} onChange={(event) => setIncomingBody(event.target.value)} placeholder="Ej.: ¿Puedo pagar un anticipo?" required />
+                <button className="button button-secondary" disabled={working || !incomingBody.trim()}>Recibir en demo</button>
+              </form>}
+            </div>}
           </>}
         </div>
 
@@ -247,12 +402,28 @@ export default function AssistantPage() {
               </dl>
             </div>
 
+            <section className="assistant-customer-panel">
+              <div><span>CLIENTE</span><strong>{detail.customer_name || "Contacto todavía no vinculado"}</strong></div>
+              <label className="field"><span>Seleccionar cliente existente</span><select value={customerID} onChange={(event) => setCustomerID(event.target.value)} disabled={!canManage}><option value="">Selecciona un cliente</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.display_name} · {customer.phone || "sin teléfono"}</option>)}</select></label>
+              {canManage && <div className="assistant-customer-actions">
+                <button className="button button-secondary" onClick={() => void linkCustomer()} disabled={working || !customerID || customerID === detail.customer_id}>Vincular seleccionado</button>
+                {canManageCustomers && <button className="assistant-text-button" onClick={() => setCustomerCreatorOpen((value) => !value)}>{customerCreatorOpen ? "Cancelar" : "+ Crear desde el chat"}</button>}
+              </div>}
+              {customerCreatorOpen && canManageCustomers && <form className="assistant-customer-form" onSubmit={createCustomer}>
+                <label className="field"><span>Nombre</span><input value={customerDraft.first_name} onChange={(event) => setCustomerDraft({ ...customerDraft, first_name: event.target.value })} required /></label>
+                <label className="field"><span>Apellido</span><input value={customerDraft.last_name} onChange={(event) => setCustomerDraft({ ...customerDraft, last_name: event.target.value })} /></label>
+                <label className="field"><span>Teléfono</span><input value={customerDraft.phone} onChange={(event) => setCustomerDraft({ ...customerDraft, phone: event.target.value })} placeholder="+50371234567" /></label>
+                <label className="field"><span>Correo</span><input type="email" value={customerDraft.email} onChange={(event) => setCustomerDraft({ ...customerDraft, email: event.target.value })} /></label>
+                <label className="field assistant-customer-company"><span>Empresa</span><input value={customerDraft.company_name} onChange={(event) => setCustomerDraft({ ...customerDraft, company_name: event.target.value })} /></label>
+                <button className="button button-primary assistant-customer-create" disabled={working}>Crear y vincular</button>
+              </form>}
+            </section>
+
             {detail.proposal.quote_id ? <div className="assistant-quote-created">
               <span>✓</span><div><strong>{detail.proposal.quote_number ? formatQuoteNumber(detail.proposal.quote_number) : "Cotización DRAFT"}</strong><p>Creada con aprobación humana. No bloquea inventario.</p><Link href={`/quotes/${detail.proposal.quote_id}`}>Abrir cotización →</Link></div>
             </div> : <>
-              <label className="field"><span>Cliente de la cotización</span><select value={customerID} onChange={(event) => setCustomerID(event.target.value)} disabled={!canManage}>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.display_name} · {customer.phone || "sin teléfono"}</option>)}</select></label>
               <label className="field assistant-response-field"><span>Respuesta editable</span><textarea value={responseBody} onChange={(event) => setResponseBody(event.target.value)} disabled={!canManage} /></label>
-              <div className="assistant-approval-note"><strong>Al aprobar:</strong><span>se registra el usuario, la evidencia y se crea un borrador de cotización. El mensaje no sale hacia ningún teléfono.</span></div>
+              <div className="assistant-approval-note"><strong>Al aprobar:</strong><span>se registra el usuario y se crea un borrador de cotización. Después podrás entregar la respuesta en el simulador.</span></div>
               {canManage ? <button className="button button-primary assistant-approve-button" onClick={() => void approve()} disabled={working || !customerID || !detail.proposal.available}>{working ? "Procesando…" : "Aprobar y crear DRAFT"}</button> : <p className="assistant-readonly">Tu rol permite revisar, pero no aprobar propuestas.</p>}
             </>}
           </>}

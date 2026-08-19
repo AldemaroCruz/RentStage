@@ -1,8 +1,18 @@
-# RentStage Starter v0.15.0
+# RentStage Starter v0.15.1
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## New in v0.15.1
+
+- Completes the zero-credential sales-chat demo with a visible **Enviar respuesta demo** action and clear simulated-delivery labels.
+- Supports repeated customer follow-ups and creates a fresh deterministic response draft after every inbound demo message; every draft still requires human action.
+- Lets an authorized operator select an existing customer or create and link a `WHATSAPP`-sourced customer directly from the conversation.
+- Audits customer linking, simulated inbound replies, and simulated outbound delivery while preserving tenant boundaries and the existing RBAC model.
+- Keeps the real Meta channel disabled and documents the separate production adapter work required for a paid WhatsApp Business rollout.
+
+See [`docs/WHATSAPP-DEMO-CHAT-0.15.1.md`](docs/WHATSAPP-DEMO-CHAT-0.15.1.md) and [`docs/UPGRADE-0.15.1.md`](docs/UPGRADE-0.15.1.md).
 
 ## New in v0.15.0
 
@@ -568,4 +578,4 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Next increment
 
-Use the v0.15.0 guided presentation with prospective users and CONAMYPE to validate the WhatsApp-style intake, package recommendation, human approval, and quote conversion. The next channel increment is a controlled Meta Business pilot with webhook verification, templates, opt-in evidence, a 24-hour service-window policy, delivery status, and human escalation. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.
+Use the v0.15.1 guided presentation with prospective users and CONAMYPE to validate WhatsApp-style intake, customer creation, multi-turn human-approved conversation, package recommendation, and quote conversion. The next channel increment is a controlled Meta Business pilot with webhook verification, templates, opt-in evidence, a 24-hour service-window policy, delivery status, and human escalation. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.

@@ -70,6 +70,63 @@ func (h *Handler) Approve(w http.ResponseWriter, r *http.Request) {
 	webutil.WriteJSON(w, http.StatusOK, item)
 }
 
+func (h *Handler) LinkCustomer(w http.ResponseWriter, r *http.Request) {
+	conversationID, ok := conversationPathID(w, r)
+	if !ok {
+		return
+	}
+	var input LinkCustomerInput
+	if err := webutil.DecodeJSON(r, &input); err != nil {
+		webutil.WriteError(w, r, http.StatusBadRequest, "invalid_json", "The request body is not valid JSON.")
+		return
+	}
+	item, fields, err := h.service.LinkCustomer(
+		r.Context(), webutil.TenantID(r.Context()), conversationID, input,
+	)
+	if h.writeFailure(w, r, fields, err) {
+		return
+	}
+	webutil.WriteJSON(w, http.StatusOK, item)
+}
+
+func (h *Handler) SendDemo(w http.ResponseWriter, r *http.Request) {
+	conversationID, ok := conversationPathID(w, r)
+	if !ok {
+		return
+	}
+	var input SendDemoInput
+	if err := webutil.DecodeJSON(r, &input); err != nil {
+		webutil.WriteError(w, r, http.StatusBadRequest, "invalid_json", "The request body is not valid JSON.")
+		return
+	}
+	item, fields, err := h.service.SendDemo(
+		r.Context(), webutil.TenantID(r.Context()), conversationID, input,
+	)
+	if h.writeFailure(w, r, fields, err) {
+		return
+	}
+	webutil.WriteJSON(w, http.StatusOK, item)
+}
+
+func (h *Handler) ReceiveDemo(w http.ResponseWriter, r *http.Request) {
+	conversationID, ok := conversationPathID(w, r)
+	if !ok {
+		return
+	}
+	var input ReceiveDemoInput
+	if err := webutil.DecodeJSON(r, &input); err != nil {
+		webutil.WriteError(w, r, http.StatusBadRequest, "invalid_json", "The request body is not valid JSON.")
+		return
+	}
+	item, fields, err := h.service.ReceiveDemo(
+		r.Context(), webutil.TenantID(r.Context()), conversationID, input,
+	)
+	if h.writeFailure(w, r, fields, err) {
+		return
+	}
+	webutil.WriteJSON(w, http.StatusOK, item)
+}
+
 func (h *Handler) writeFailure(w http.ResponseWriter, r *http.Request, fields map[string]string, err error) bool {
 	if len(fields) > 0 {
 		webutil.WriteValidationError(w, r, fields)
@@ -86,6 +143,10 @@ func (h *Handler) writeFailure(w http.ResponseWriter, r *http.Request, fields ma
 		webutil.WriteError(w, r, http.StatusConflict, "assistant_already_approved", "This proposal already created a quote draft.")
 	case errors.Is(err, ErrCustomerMissing):
 		webutil.WriteError(w, r, http.StatusUnprocessableEntity, "assistant_customer_missing", "Select an existing customer for the quote draft.")
+	case errors.Is(err, ErrDemoOnly):
+		webutil.WriteError(w, r, http.StatusConflict, "assistant_demo_only", "This operation is available only in the simulated demo channel.")
+	case errors.Is(err, ErrMessageNotReady):
+		webutil.WriteError(w, r, http.StatusConflict, "assistant_message_not_ready", "The selected message was already sent or is no longer awaiting approval.")
 	case err != nil:
 		webutil.WriteError(w, r, http.StatusInternalServerError, "assistant_operation_failed", "Could not complete the assistant operation.")
 	default:
