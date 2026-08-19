@@ -1,8 +1,18 @@
-# RentStage Starter v0.15.5
+# RentStage Starter v0.16.0
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## New in v0.16.0
+
+- Adds an authenticated **Métricas operativas** workspace with explicit 7, 30, and 90-day windows.
+- Connects tenant-scoped inquiries, quotes, quote-derived reservations, invoices, confirmed payments, customer acquisition, assistant response time, portal decisions, and audit evidence.
+- Separates activity-window measures from current snapshots such as open quote pipeline and receivables, and labels the funnel as activity rather than a closed cohort.
+- Adds a six-month value trend, source mix, reservation outcomes, and human-control evidence without introducing analytics cookies or a third-party telemetry service.
+- Extends the authenticated smoke suite and focused frontend coverage while reusing the existing `operations.read` permission.
+
+See [`docs/METRICS-0.16.0.md`](docs/METRICS-0.16.0.md), [`docs/UPGRADE-0.16.0.md`](docs/UPGRADE-0.16.0.md), and [`docs/VALIDATION-0.16.0.md`](docs/VALIDATION-0.16.0.md).
 
 ## Quality update in v0.15.5
 
@@ -589,6 +599,9 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Documentation
 
+- `docs/METRICS-0.16.0.md`
+- `docs/UPGRADE-0.16.0.md`
+- `docs/VALIDATION-0.16.0.md`
 - `docs/UPGRADE-0.15.5.md`
 - `docs/VALIDATION-0.15.5.md`
 - `docs/UPGRADE-0.15.4.md`
@@ -623,4 +636,4 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Next increment
 
-Use the v0.15.5 guided presentation with prospective users and CONAMYPE to validate WhatsApp-style intake, customer creation, multi-turn human-approved conversation, package recommendation, secure quote review, an explicit customer decision, and a consistent light/dark interface. The next product increment is an operational metrics layer for funnel conversion, response time, quote value, reservation outcomes, collections, and demo evidence. The following channel increment remains a controlled Meta Business pilot with webhook verification, templates, opt-in evidence, a 24-hour service-window policy, delivery status, and human escalation. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.
+Use the v0.16.0 metrics workspace during prospective-user and CONAMYPE sessions to validate which acquisition, response-time, conversion, reservation, and collection indicators actually drive decisions. The next channel increment remains a controlled Meta Business pilot with webhook verification, templates, opt-in evidence, a 24-hour service-window policy, delivery status, and human escalation. Exportable investor/demo evidence and saved comparison periods should follow validated metric definitions rather than introduce a competing analytics source. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.

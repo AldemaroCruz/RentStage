@@ -15,6 +15,7 @@ import (
 	"github.com/rentstage/rentstage/apps/api/internal/core/availability"
 	"github.com/rentstage/rentstage/apps/api/internal/core/billing"
 	"github.com/rentstage/rentstage/apps/api/internal/core/catalog"
+	"github.com/rentstage/rentstage/apps/api/internal/core/commercialmetrics"
 	"github.com/rentstage/rentstage/apps/api/internal/core/customer"
 	"github.com/rentstage/rentstage/apps/api/internal/core/dashboard"
 	"github.com/rentstage/rentstage/apps/api/internal/core/dte"
@@ -85,6 +86,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	identityHandler := identity.NewHandler(identityRepository, identityService)
 	tenantHandler := tenant.NewHandler(pool)
 	dashboardHandler := dashboard.NewHandler(pool)
+	commercialMetricsHandler := commercialmetrics.NewHandler(commercialmetrics.NewRepository(pool))
 	catalogHandler := catalog.NewHandler(catalogRepository, catalogService)
 	inventoryHandler := inventory.NewHandler(inventoryRepository, inventoryService)
 	availabilityHandler := availability.NewHandler(availabilityService)
@@ -154,6 +156,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	registerTenant("PATCH /api/v1/team/members/{userID}", identity.PermissionTeamManage, identityHandler.UpdateMember)
 
 	registerTenant("GET /api/v1/dashboard", identity.PermissionOperationsRead, dashboardHandler.Get)
+	registerTenant("GET /api/v1/metrics/commercial", identity.PermissionOperationsRead, commercialMetricsHandler.Get)
 	registerTenant("GET /api/v1/assistant/conversations", identity.PermissionAssistantRead, assistantHandler.List)
 	registerTenant("POST /api/v1/assistant/conversations/simulate", identity.PermissionAssistantManage, assistantHandler.Simulate)
 	registerTenant("GET /api/v1/assistant/conversations/{conversationID}", identity.PermissionAssistantRead, assistantHandler.Get)

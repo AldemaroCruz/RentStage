@@ -10,6 +10,7 @@ import type { OperationAlertsResult, Permission } from "@/lib/types";
 
 type IconName =
   | "dashboard"
+  | "metrics"
   | "quotes"
   | "packages"
   | "storefront"
@@ -47,6 +48,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   };
   const paths: Record<IconName, ReactNode> = {
     dashboard: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
+    metrics: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /><path d="m3 7 6-4 6 6 6-5" /></>,
     quotes: <><path d="M6 3h9l3 3v15H6z" /><path d="M14 3v4h4M9 11h6M9 15h6" /></>,
     packages: <><path d="m12 3 8 4-8 4-8-4z" /><path d="m4 12 8 4 8-4" /><path d="m4 17 8 4 8-4" /></>,
     storefront: <><path d="M3 10h18" /><path d="m5 10 1-6h12l1 6" /><path d="M5 10v10h14V10" /><path d="M9 20v-6h6v6" /><path d="M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" /></>,
@@ -77,6 +79,7 @@ type NavItem = { href: string; label: string; icon: IconName; permission?: Permi
 
 const operationsNavigation: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "dashboard", permission: "operations.read" },
+  { href: "/metrics", label: "Métricas", icon: "metrics", permission: "operations.read" },
   { href: "/demo", label: "Demo guiada", icon: "sparkles", permission: "operations.read" },
   { href: "/assistant", label: "WhatsApp AI", icon: "inbox", permission: "assistant.read" },
   { href: "/calendar", label: "Calendario", icon: "calendar", permission: "operations.read" },
@@ -108,6 +111,7 @@ const systemNavigation: NavItem[] = [
 ];
 
 function pageTitle(pathname: string): string {
+  if (pathname === "/metrics") return "Métricas operativas";
   if (pathname === "/demo") return "Demo comercial";
   if (pathname === "/assistant") return "WhatsApp Sales Assistant";
   if (pathname === "/calendar") return "Calendario operacional";

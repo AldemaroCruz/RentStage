@@ -80,3 +80,23 @@ test("audit markers and the sticky billing action bar follow theme tokens", () =
     /:root\[data-theme="dark"\] \.billing-settings-actions\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--surface\) 94%, transparent\);/s,
   );
 });
+
+test("commercial metrics use themed surfaces and a responsive layout", () => {
+  const marker = "RentStage v0.16.0 — tenant-scoped commercial metrics";
+  const metricsStyles = stylesheet.slice(stylesheet.indexOf(marker));
+
+  assert.ok(metricsStyles.length > marker.length, "missing commercial metrics styles");
+
+  for (const selector of [
+    ".commercial-kpi-grid",
+    ".commercial-main-grid",
+    ".commercial-month-chart",
+    ".commercial-detail-grid",
+  ]) {
+    assert.ok(metricsStyles.includes(selector), `missing metrics selector: ${selector}`);
+  }
+
+  assert.match(metricsStyles, /background:\s*var\(--surface\);/);
+  assert.doesNotMatch(metricsStyles, /background:\s*(?:white|#fff(?:fff)?)\s*;/i);
+  assert.match(metricsStyles, /@media \(max-width: 620px\)/);
+});

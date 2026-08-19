@@ -179,6 +179,61 @@ export type DashboardData = {
   }>;
 };
 
+export type CommercialMetricsReport = {
+  generated_at: string;
+  currency: string;
+  window: {
+    days: 7 | 30 | 90;
+    start_at: string;
+    end_at: string;
+  };
+  overview: {
+    inquiries: number;
+    public_requests: number;
+    assistant_conversations: number;
+    new_customers: number;
+    quotes_created: number;
+    quotes_presented: number;
+    quotes_accepted: number;
+    quotes_rejected: number;
+    reservations_created: number;
+    quote_reservations_created: number;
+    invoices_issued: number;
+    quote_acceptance_rate: number;
+    quote_to_reservation_rate: number;
+    average_response_minutes: number;
+    response_samples: number;
+    quote_pipeline_value: number;
+    accepted_quote_value: number;
+    reservation_value: number;
+    issued_value: number;
+    collected_value: number;
+    outstanding_value: number;
+    audit_events: number;
+    human_approved_messages: number;
+    customer_portal_decisions: number;
+  };
+  funnel: Array<{
+    key: string;
+    label: string;
+    count: number;
+    description: string;
+  }>;
+  reservation_outcomes: {
+    active: number;
+    completed: number;
+    cancelled: number;
+    cancellation_rate: number;
+  };
+  customer_sources: Array<{ source: "WEB" | "WHATSAPP" | "MANUAL" | "IMPORT"; count: number }>;
+  monthly_activity: Array<{
+    month: string;
+    quote_value: number;
+    reservation_value: number;
+    collected_value: number;
+  }>;
+};
+
 export type AuditEvent = {
   id: string;
   actor_type: string;

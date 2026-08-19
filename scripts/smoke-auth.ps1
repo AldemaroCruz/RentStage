@@ -72,11 +72,27 @@ try {
         -Uri "$ApiBase/api/v1/dashboard" `
         -WebSession $webSession
 
+    Write-Step "Reading tenant-scoped commercial metrics"
+    $commercialMetrics = Invoke-RestMethod `
+        -Method Get `
+        -Uri "$ApiBase/api/v1/metrics/commercial?days=30" `
+        -WebSession $webSession
+
+    if (
+        $commercialMetrics.window.days -ne 30 -or
+        $null -eq $commercialMetrics.overview -or
+        @($commercialMetrics.funnel).Count -ne 5 -or
+        @($commercialMetrics.monthly_activity).Count -ne 6
+    ) {
+        throw "The commercial metrics endpoint returned an incomplete payload."
+    }
+
     Write-Host "Authenticated user: $($authenticatedMe.user.email)" -ForegroundColor Green
     Write-Host "Active workspace:   $($authenticatedMe.active_workspace.name)" -ForegroundColor Green
     Write-Host "Role:               $($authenticatedMe.active_workspace.role)" -ForegroundColor Green
     Write-Host "Permissions:        $($authenticatedMe.permissions.Count)" -ForegroundColor Green
     Write-Host "Dashboard response: OK" -ForegroundColor Green
+    Write-Host "Commercial metrics: OK" -ForegroundColor Green
 
     Write-Step "Closing the server session"
     Invoke-RestMethod `

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.16.0 — Tenant-scoped operational metrics
+
+### Added
+
+- Adds an authenticated commercial-metrics API and admin workspace with explicit 7, 30, and 90-day reporting windows.
+- Measures inquiry volume, quote decisions, quote-derived reservation conversion, first-response time, current pipeline, accepted and reserved value, invoicing, collections, and current receivables.
+- Adds six-month value trends, reservation outcomes, customer-source distribution, human-approved assistant messages, Quote Portal decisions, and audit-event evidence.
+- Adds a **Métricas** navigation entry and a dashboard shortcut under the existing `operations.read` permission.
+- Extends the authenticated integration smoke test and adds focused formatter coverage for metric bars, response durations, and source labels.
+
+### Measurement boundary
+
+- Every query derives the tenant from the authenticated server context; the browser cannot select another tenant ID.
+- Windowed activity is distinct from current snapshots. Pipeline and outstanding balances are marked as present-time values.
+- Funnel stages summarize activity within one window and are not presented as a closed cohort; manual reservations do not inflate quote-to-reservation conversion.
+- No third-party analytics service, tracking cookie, database migration, secret, environment variable, IAM grant, or Terraform resource is introduced.
+
 ## 0.15.5 — Administrative dark-theme completion
 
 ### Changed

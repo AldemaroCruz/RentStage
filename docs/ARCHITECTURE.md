@@ -462,6 +462,7 @@ internal/
 │   ├── packages  reusable commercial composition and quote templates
 │   ├── publiccatalog  storefront publication and quote-request workflow
 │   ├── quoteportal    expiring public quotes, decisions, and acceptance orchestration
+│   ├── commercialmetrics  tenant-scoped operational reporting and funnel evidence
 │   ├── inventory
 │   ├── customer
 │   ├── quote
