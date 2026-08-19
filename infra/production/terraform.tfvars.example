@@ -1,0 +1,10 @@
+project_id                    = "replace-with-your-production-gcp-project-id"
+region                        = "us-east1"
+artifact_repository           = "rentstage"
+deploy_service_account_email  = "rentstage-deploy-prod@replace-with-your-production-gcp-project-id.iam.gserviceaccount.com"
+database_password             = "replace-with-24-to-64-alphanumeric-characters"
+database_tier                 = "db-custom-1-3840"
+database_availability_type    = "ZONAL"
+database_disk_size            = 20
+backup_retention_count        = 14
+additional_authorized_domains = []

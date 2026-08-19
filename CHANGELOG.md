@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.17.0 — Isolated production infrastructure foundation
+
+### Added
+
+- Adds a reusable Terraform platform module and separate staging and production roots so environments can share reviewed infrastructure code without sharing projects, state, identities, secrets, or lifecycle controls.
+- Adds production bootstrap automation for a dedicated billing-enabled GCP project, versioned private state bucket, environment-bound Workload Identity Federation provider, and distinct infrastructure/deployment service accounts without service-account keys.
+- Adds a manual **Production Infrastructure Plan** workflow that runs only from `main` through the protected `production` GitHub Environment and intentionally contains no apply or application-deployment path.
+- Keeps the production planning identity read-only outside its isolated state bucket and leaves the reserved deployment identity without project roles or GitHub impersonation until a later reviewed apply/deploy increment.
+- Adds empty Secret Manager containers for the future Meta access token, app identifiers, app secret, sender/WABA identifiers, and webhook verification token; Terraform never receives their values.
+- Adds CI validation for both Terraform roots and offline isolation contracts for state prefixes, GitHub Environment secrets, Meta container scope, and staging state migration declarations.
+
+### Migration and safety
+
+- Preserves the deployed staging names and moves existing Terraform state addresses into `module.platform`; the first staging plan must show moves with zero additions, replacements, or destructions.
+- Keeps the production database deletion-protected with TLS, connector enforcement, backups, PITR, and a cost-controlled ZONAL default that must be reviewed before the first apply.
+- Does not apply production infrastructure, deploy Cloud Run, seed demo data, create a public sender, contact Meta, or enable a production deployment gate.
+- Adds no application API, schema, session, tenant-data, or demo behavior change.
+
 ## 0.16.0 — Tenant-scoped operational metrics
 
 ### Added

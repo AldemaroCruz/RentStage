@@ -1,5 +1,5 @@
 variable "project_id" {
-  description = "Billing-enabled Google Cloud project used only for RentStage staging."
+  description = "Billing-enabled Google Cloud project dedicated to RentStage staging."
   type        = string
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]$", var.project_id))
@@ -20,7 +20,7 @@ variable "artifact_repository" {
 }
 
 variable "deploy_service_account_email" {
-  description = "GitHub deployment service account created by bootstrap-gcp-staging.sh."
+  description = "Staging GitHub deployment service account created by bootstrap-gcp-staging.sh."
   type        = string
 }
 

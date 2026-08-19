@@ -18,7 +18,9 @@ updates:
     directory: /apps/auth-emulator
     schedule: { interval: weekly, day: tuesday }
   - package-ecosystem: terraform
-    directory: /infra/staging
+    directories:
+      - /infra/staging
+      - /infra/production
     schedule: { interval: weekly, day: wednesday }
   - package-ecosystem: github-actions
     directory: /

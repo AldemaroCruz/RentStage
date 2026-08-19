@@ -1,8 +1,18 @@
-# RentStage Starter v0.16.0
+# RentStage Starter v0.17.0
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## New in v0.17.0
+
+- Extracts the existing GCP resources into one reusable Terraform platform module while preserving the deployed staging resource names and state addresses through explicit `moved` declarations.
+- Adds an isolated `infra/production` root for a separate billing-enabled GCP project, remote state, Workload Identity Federation identity, service accounts, database, Firebase configuration, and secrets.
+- Adds a protected, manual **Production Infrastructure Plan** workflow with no `apply` path and no production application deployment.
+- Creates only empty production Secret Manager containers for the future Meta Cloud API adapter; access tokens and application secrets remain outside Terraform state.
+- Adds offline CI contracts that prevent staging/production state-prefix, environment-secret, and deployment-gate crossover.
+
+See [`docs/PRODUCTION-INFRASTRUCTURE-0.17.0.md`](docs/PRODUCTION-INFRASTRUCTURE-0.17.0.md), [`docs/META-PRODUCTION-ROADMAP.md`](docs/META-PRODUCTION-ROADMAP.md), [`docs/UPGRADE-0.17.0.md`](docs/UPGRADE-0.17.0.md), and [`docs/VALIDATION-0.17.0.md`](docs/VALIDATION-0.17.0.md).
 
 ## New in v0.16.0
 
@@ -599,6 +609,10 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Documentation
 
+- `docs/PRODUCTION-INFRASTRUCTURE-0.17.0.md`
+- `docs/META-PRODUCTION-ROADMAP.md`
+- `docs/UPGRADE-0.17.0.md`
+- `docs/VALIDATION-0.17.0.md`
 - `docs/METRICS-0.16.0.md`
 - `docs/UPGRADE-0.16.0.md`
 - `docs/VALIDATION-0.16.0.md`
@@ -636,4 +650,4 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Next increment
 
-Use the v0.16.0 metrics workspace during prospective-user and CONAMYPE sessions to validate which acquisition, response-time, conversion, reservation, and collection indicators actually drive decisions. The next channel increment remains a controlled Meta Business pilot with webhook verification, templates, opt-in evidence, a 24-hour service-window policy, delivery status, and human escalation. Exportable investor/demo evidence and saved comparison periods should follow validated metric definitions rather than introduce a competing analytics source. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.
+Run and review the production infrastructure plan without applying it. After the GCP project boundary, cost estimate, recovery objective, custom domain, and IAM review are accepted, add an explicitly approved production apply/deploy increment. The Meta channel should then begin as a controlled pilot with signature-verified webhooks, idempotent message ingestion, approved templates, opt-in evidence, delivery statuses, a 24-hour service-window policy, observability, and human escalation. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.

@@ -1,6 +1,6 @@
 # RentStage staging infrastructure
 
-This Terraform module creates the shared staging foundation. Cloud Run revisions are deployed by `.github/workflows/pipeline.yml`, not by Terraform.
+This Terraform root calls the shared `infra/modules/rentstage-platform` module with staging-safe values. Cloud Run revisions are deployed by `.github/workflows/pipeline.yml`, not by Terraform.
 
 Terraform manages:
 
@@ -16,5 +16,7 @@ The generated Cloud Run web hostname is unknown during the first Terraform apply
 The database password and generated database URL are present in Terraform state. Keep the GCS state bucket private, versioned, and restricted to the infrastructure identity. Binary Terraform plans can also contain sensitive values and are intentionally not uploaded as GitHub artifacts.
 
 Run the `Staging Infrastructure` workflow first with `plan` and inspect its log. Then run it with `apply` from `main`; protect the GitHub `staging` Environment with a reviewer for an approval gate.
+
+Version 0.17.0 moves the existing Terraform addresses under `module.platform`. The declarations in `moved.tf` preserve the current remote resources. The first plan after upgrading must report address moves and **zero resources to add, replace, or destroy**. Do not apply if it proposes infrastructure recreation.
 
 The default shared-core tier is intentionally staging-only and should be increased before load or production testing. Both Terraform-level and Google Cloud-level deletion protection follow `var.deletion_protection`.

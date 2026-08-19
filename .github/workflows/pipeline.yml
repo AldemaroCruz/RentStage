@@ -41,11 +41,12 @@ jobs:
           python scripts/ci/check-migrations.py
           bash scripts/ci/check-sensitive-files.sh
           python scripts/ci/check-workflow-yaml.py
+          python scripts/ci/check-environment-isolation.py
           docker compose config >/dev/null
           git diff --check
       - name: Validate shell and PowerShell helpers
         run: |
-          shellcheck -x scripts/ci/*.sh scripts/gcp/*.sh scripts/bootstrap-gcp-staging.sh
+          shellcheck -x scripts/ci/*.sh scripts/gcp/*.sh scripts/bootstrap-gcp-*.sh
           bash scripts/gcp/test-staging-cost-control.sh
           pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/ci/check-powershell-syntax.ps1
           pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/test-smoke-common.ps1
@@ -115,19 +116,23 @@ jobs:
       - run: npm run test:ci
 
   terraform-validation:
-    name: Terraform format and validation
+    name: Terraform ${{ matrix.environment }} format and validation
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [staging, production]
     defaults:
       run:
-        working-directory: infra/staging
+        working-directory: infra/${{ matrix.environment }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: hashicorp/setup-terraform@v4.0.1
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           terraform_wrapper: false
-      - run: terraform fmt -recursive
+      - run: terraform fmt -check -recursive ..
       - run: terraform init -backend=false -input=false
       - run: terraform validate
 

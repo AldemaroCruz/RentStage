@@ -1,8 +1,8 @@
 module "platform" {
   source = "../modules/rentstage-platform"
 
-  environment                   = "staging"
-  environment_short             = "stg"
+  environment                   = "production"
+  environment_short             = "prod"
   project_id                    = var.project_id
   region                        = var.region
   artifact_repository           = var.artifact_repository
@@ -11,11 +11,11 @@ module "platform" {
   database_user                 = var.database_user
   database_password             = var.database_password
   database_tier                 = var.database_tier
-  database_availability_type    = "ZONAL"
-  database_disk_size            = 20
-  backup_retention_count        = 7
-  deletion_protection           = var.deletion_protection
+  database_availability_type    = var.database_availability_type
+  database_disk_size            = var.database_disk_size
+  backup_retention_count        = var.backup_retention_count
+  deletion_protection           = true
   additional_authorized_domains = var.additional_authorized_domains
-  enable_meta_secret_containers = false
-  enable_deploy_iam_bindings    = true
+  enable_meta_secret_containers = true
+  enable_deploy_iam_bindings    = false
 }
