@@ -66,8 +66,8 @@ func (s *Service) Simulate(
 			tenantID,
 			candidate.ID,
 			packages.AvailabilityInput{
-				StartAt: normalized.StartAt.Format(time.RFC3339),
-				EndAt: normalized.EndAt.Format(time.RFC3339),
+				StartAt:  normalized.StartAt.Format(time.RFC3339),
+				EndAt:    normalized.EndAt.Format(time.RFC3339),
 				Quantity: 1,
 			},
 		)
@@ -185,8 +185,8 @@ func (s *Service) Approve(
 	}
 
 	availabilityResult, availabilityFields, err := s.packageService.Availability(ctx, tenantID, detail.Proposal.PackageID, packages.AvailabilityInput{
-		StartAt: detail.Proposal.StartAt.Format(time.RFC3339),
-		EndAt: detail.Proposal.EndAt.Format(time.RFC3339),
+		StartAt:  detail.Proposal.StartAt.Format(time.RFC3339),
+		EndAt:    detail.Proposal.EndAt.Format(time.RFC3339),
 		Quantity: detail.Proposal.PackageQuantity,
 	})
 	if err != nil {
@@ -221,12 +221,12 @@ func (s *Service) Approve(
 	expiresAt := time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339)
 	createdQuote, quoteFields, err := s.quoteService.Create(ctx, tenantID, quote.CreateInput{
 		CustomerID: input.CustomerID,
-		StartAt: detail.Proposal.StartAt.Format(time.RFC3339),
-		EndAt: detail.Proposal.EndAt.Format(time.RFC3339),
-		EventType: &eventType, EventLocation: &eventLocation,
+		StartAt:    detail.Proposal.StartAt.Format(time.RFC3339),
+		EndAt:      detail.Proposal.EndAt.Format(time.RFC3339),
+		EventType:  &eventType, EventLocation: &eventLocation,
 		ExtraCharges: template.ExtraCharges,
-		Notes: fmt.Sprintf("Borrador creado con aprobación humana desde el asistente comercial. Conversación %s. No reserva inventario.", conversationID),
-		ExpiresAt: &expiresAt, Items: quoteItems,
+		Notes:        fmt.Sprintf("Borrador creado con aprobación humana desde el asistente comercial. Conversación %s. No reserva inventario.", conversationID),
+		ExpiresAt:    &expiresAt, Items: quoteItems,
 	})
 	if err != nil {
 		return ConversationDetail{}, nil, err
@@ -299,12 +299,12 @@ func rankPackages(items []packages.Summary, input normalizedSimulation) []packag
 
 func normalizeSimulation(input SimulateInput) (normalizedSimulation, map[string]string) {
 	result := normalizedSimulation{
-		ContactName: strings.TrimSpace(input.ContactName),
-		ContactPhone: strings.TrimSpace(input.ContactPhone),
-		Message: strings.TrimSpace(input.Message),
-		EventType: strings.TrimSpace(input.EventType),
+		ContactName:   strings.TrimSpace(input.ContactName),
+		ContactPhone:  strings.TrimSpace(input.ContactPhone),
+		Message:       strings.TrimSpace(input.Message),
+		EventType:     strings.TrimSpace(input.EventType),
 		EventLocation: strings.TrimSpace(input.EventLocation),
-		GuestCount: input.GuestCount,
+		GuestCount:    input.GuestCount,
 	}
 	fields := map[string]string{}
 	if result.ContactName == "" || len(result.ContactName) > 240 {

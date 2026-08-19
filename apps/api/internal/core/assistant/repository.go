@@ -147,11 +147,11 @@ func (r *Repository) CreateDemo(
 	}
 
 	intentMetadata, _ := json.Marshal(map[string]any{
-		"event_type": input.EventType,
-		"start_at": input.StartAt,
-		"end_at": input.EndAt,
+		"event_type":     input.EventType,
+		"start_at":       input.StartAt,
+		"end_at":         input.EndAt,
 		"event_location": input.EventLocation,
-		"guest_count": input.GuestCount,
+		"guest_count":    input.GuestCount,
 	})
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO assistant_messages (

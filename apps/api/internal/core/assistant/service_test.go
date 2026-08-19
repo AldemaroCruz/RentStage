@@ -10,8 +10,8 @@ func TestRankPackagesPrefersReadyCapacityAndIntent(t *testing.T) {
 	hundred := 100
 	fifty := 50
 	input := normalizedSimulation{
-		Message: "Necesito sonido para una boda de cien personas.",
-		EventType: "Boda",
+		Message:    "Necesito sonido para una boda de cien personas.",
+		EventType:  "Boda",
 		GuestCount: 100,
 	}
 	items := []packages.Summary{
@@ -32,14 +32,14 @@ func TestRankPackagesPrefersReadyCapacityAndIntent(t *testing.T) {
 
 func TestNormalizeSimulationRejectsIncompleteIntent(t *testing.T) {
 	_, fields := normalizeSimulation(SimulateInput{
-		ContactName: "",
-		ContactPhone: "7123",
-		Message: "hola",
-		EventType: "",
-		StartAt: "tomorrow",
-		EndAt: "later",
+		ContactName:   "",
+		ContactPhone:  "7123",
+		Message:       "hola",
+		EventType:     "",
+		StartAt:       "tomorrow",
+		EndAt:         "later",
 		EventLocation: "",
-		GuestCount: 0,
+		GuestCount:    0,
 	})
 	for _, key := range []string{"contact_name", "contact_phone", "message", "event_type", "start_at", "end_at", "event_location", "guest_count"} {
 		if fields[key] == "" {
