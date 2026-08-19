@@ -108,3 +108,9 @@ variable "enable_deploy_iam_bindings" {
   type        = bool
   default     = false
 }
+
+variable "use_minimal_firebase_role" {
+  description = "Replace Firebase Auth Admin on the API runtime with a custom role limited to reading users and creating session cookies."
+  type        = bool
+  default     = false
+}

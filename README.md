@@ -1,8 +1,19 @@
-# RentStage Starter v0.17.0
+# RentStage Starter v0.17.1
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## Security update in v0.17.1
+
+- Adds a protected, manual **Production Infrastructure Apply** workflow that applies only the exact saved plan generated in the same job.
+- Rejects updates, replacements, destroys, root-level resources, and cross-project resources before the first production apply.
+- Separates the apply identity into its own Workload Identity Pool restricted to the exact apply workflow, while keeping the existing plan identity read-only.
+- Adds just-in-time grant, status, and revoke operations for production control-plane permissions; the reserved application deployment identity remains unbound and unprivileged.
+- Replaces production API runtime Firebase Auth Admin with a custom role containing only user lookup and session-cookie creation permissions.
+- Keeps both production gates disabled by default and still provides no Cloud Run application deployment or Meta credential value management.
+
+See [`docs/PRODUCTION-APPLY-0.17.1.md`](docs/PRODUCTION-APPLY-0.17.1.md), [`docs/UPGRADE-0.17.1.md`](docs/UPGRADE-0.17.1.md), and [`docs/VALIDATION-0.17.1.md`](docs/VALIDATION-0.17.1.md).
 
 ## New in v0.17.0
 
@@ -609,6 +620,9 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Documentation
 
+- `docs/PRODUCTION-APPLY-0.17.1.md`
+- `docs/UPGRADE-0.17.1.md`
+- `docs/VALIDATION-0.17.1.md`
 - `docs/PRODUCTION-INFRASTRUCTURE-0.17.0.md`
 - `docs/META-PRODUCTION-ROADMAP.md`
 - `docs/UPGRADE-0.17.0.md`

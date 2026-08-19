@@ -191,7 +191,7 @@ export default function DashboardPage() {
           <h3>Presenta la operación completa en siete minutos</h3>
           <p>Recorre catálogo, cotización, reserva, inventario, factura y cobro con un escenario coherente. DTE permanece claramente identificado como MOCK / TEST.</p>
         </div>
-        <Link className="future-status" href="/metrics">v0.17.0 →</Link>
+        <Link className="future-status" href="/metrics">v0.17.1 →</Link>
       </section>
     </div>
   );

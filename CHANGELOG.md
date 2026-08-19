@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.17.1 — Protected production infrastructure apply
+
+### Added
+
+- Adds a manual production infrastructure apply workflow behind `main`, the protected `production` GitHub Environment, an explicit repository gate, the exact production project ID, and the `APPLY-PRODUCTION` confirmation phrase.
+- Generates a saved Terraform plan and applies that same file within one ephemeral job; the plan is never uploaded because it contains the database password.
+- Adds an offline JSON safety gate that rejects updates, replacements, destroys, root-level resources, and resources targeting any project other than the protected production project.
+- Adds a dedicated apply service account and separate Workload Identity Pool/provider whose OIDC condition accepts only the production apply workflow on `main` in the `production` Environment.
+- Adds just-in-time `grant`, `status`, and `revoke` operations for the apply identity's control-plane roles. Bootstrap grants it state-bucket access but no persistent project mutation role.
+- Adds focused tests for allowed create-only plans and rejected update, replacement, destroy, root-resource, and cross-project cases.
+
+### Least privilege and safety
+
+- Production API runtime now receives a custom Firebase role containing only `firebaseauth.users.get` and `firebaseauth.users.createSession`; staging keeps its deployed binding so its migration plan remains zero-change.
+- The existing production plan identity remains read-only, and the reserved application deployment identity still has no project role or WIF impersonation binding.
+- Both `PRODUCTION_INFRA_APPLY_ENABLED` and `PRODUCTION_DEPLOY_ENABLED` remain false by default. This release applies no infrastructure automatically and still contains no production application deployment path.
+- Cloud SQL deletion protection, backups, PITR, TLS, connector enforcement, separate state, and Meta secret-value exclusion remain unchanged.
+
 ## 0.17.0 — Isolated production infrastructure foundation
 
 ### Added

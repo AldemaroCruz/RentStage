@@ -42,6 +42,7 @@ jobs:
           bash scripts/ci/check-sensitive-files.sh
           python scripts/ci/check-workflow-yaml.py
           python scripts/ci/check-environment-isolation.py
+          python scripts/ci/test_production_apply_plan.py
           docker compose config >/dev/null
           git diff --check
       - name: Validate shell and PowerShell helpers

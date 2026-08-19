@@ -277,12 +277,14 @@ resource "google_secret_manager_secret" "meta" {
 }
 
 locals {
-  api_project_roles = toset([
-    "roles/cloudsql.client",
-    "roles/firebaseauth.admin",
-    "roles/logging.logWriter",
-    "roles/serviceusage.serviceUsageConsumer",
-  ])
+  api_project_roles = toset(concat(
+    [
+      "roles/cloudsql.client",
+      "roles/logging.logWriter",
+      "roles/serviceusage.serviceUsageConsumer",
+    ],
+    var.use_minimal_firebase_role ? [] : ["roles/firebaseauth.admin"]
+  ))
   web_project_roles = toset([
     "roles/logging.logWriter",
   ])
@@ -296,11 +298,35 @@ locals {
   ])
 }
 
+resource "google_project_iam_custom_role" "api_runtime_firebase_session" {
+  count = var.use_minimal_firebase_role ? 1 : 0
+
+  project     = var.project_id
+  role_id     = "rentstageApiFirebaseSession"
+  title       = "RentStage API Firebase session runtime"
+  description = "Read Firebase users and mint revocable session cookies without user or project administration."
+  permissions = [
+    "firebaseauth.users.createSession",
+    "firebaseauth.users.get",
+  ]
+  stage = "GA"
+
+  depends_on = [google_project_service.required]
+}
+
 resource "google_project_iam_member" "api_runtime" {
   for_each = local.api_project_roles
   project  = var.project_id
   role     = each.value
   member   = "serviceAccount:${google_service_account.api_runtime.email}"
+}
+
+resource "google_project_iam_member" "api_runtime_firebase_session" {
+  count = var.use_minimal_firebase_role ? 1 : 0
+
+  project = var.project_id
+  role    = google_project_iam_custom_role.api_runtime_firebase_session[0].name
+  member  = "serviceAccount:${google_service_account.api_runtime.email}"
 }
 
 resource "google_project_iam_member" "web_runtime" {

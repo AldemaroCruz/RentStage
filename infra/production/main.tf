@@ -18,4 +18,5 @@ module "platform" {
   additional_authorized_domains = var.additional_authorized_domains
   enable_meta_secret_containers = true
   enable_deploy_iam_bindings    = false
+  use_minimal_firebase_role     = true
 }

@@ -1,0 +1,109 @@
+name: Production Infrastructure Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_project_id:
+        description: Type the exact dedicated production GCP project ID
+        required: true
+        type: string
+      confirmation:
+        description: Type APPLY-PRODUCTION
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: rentstage-production-infrastructure
+  cancel-in-progress: false
+
+jobs:
+  terraform-apply:
+    name: Terraform production apply
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: production
+    defaults:
+      run:
+        working-directory: infra/production
+    env:
+      TF_IN_AUTOMATION: 'true'
+      TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_region: ${{ vars.GCP_REGION }}
+      TF_VAR_artifact_repository: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+      TF_VAR_deploy_service_account_email: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      TF_VAR_database_password: ${{ secrets.PRODUCTION_DATABASE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Confirm protected production request
+        env:
+          APPLY_GATE: ${{ vars.PRODUCTION_INFRA_APPLY_ENABLED }}
+          CONFIRM_PROJECT_ID: ${{ inputs.confirm_project_id }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          EXPECTED_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          if [[ "$GITHUB_REF" != 'refs/heads/main' ]]; then
+            echo 'Production infrastructure apply is restricted to main.' >&2
+            exit 1
+          fi
+          if [[ "$APPLY_GATE" != 'true' ]]; then
+            echo 'PRODUCTION_INFRA_APPLY_ENABLED must be true for this reviewed run.' >&2
+            exit 1
+          fi
+          if [[ "$CONFIRM_PROJECT_ID" != "$EXPECTED_PROJECT_ID" ]]; then
+            echo 'The confirmed project ID does not match the protected environment.' >&2
+            exit 1
+          fi
+          if [[ "$CONFIRMATION" != 'APPLY-PRODUCTION' ]]; then
+            echo 'The confirmation phrase must be APPLY-PRODUCTION.' >&2
+            exit 1
+          fi
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_INFRA_APPLY_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_INFRA_APPLY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3.0.1
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+      - name: Check formatting
+        run: terraform fmt -check -recursive ..
+      - name: Initialize isolated production state
+        run: terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="prefix=rentstage/production"
+      - name: Validate configuration
+        run: terraform validate
+      - name: Create saved production plan
+        run: terraform plan -input=false -lock-timeout=5m -out=tfplan
+      - name: Reject updates, replacements, destroys, or cross-project resources
+        run: |
+          terraform show -json tfplan > "$RUNNER_TEMP/rentstage-production-plan.json"
+          python ../../scripts/ci/check_production_apply_plan.py \
+            --plan "$RUNNER_TEMP/rentstage-production-plan.json" \
+            --expected-project "${{ vars.GCP_PROJECT_ID }}"
+      - name: Apply the exact validated plan
+        run: terraform apply -input=false -lock-timeout=5m -auto-approve tfplan
+      - name: Infrastructure outputs
+        run: terraform output
+      - name: Remove sensitive plan files
+        if: always()
+        run: rm -f tfplan "$RUNNER_TEMP/rentstage-production-plan.json"
+      - name: Production apply summary
+        if: success()
+        run: |
+          {
+            echo '## RentStage production infrastructure apply'
+            echo ''
+            echo '- Environment: protected `production`'
+            echo '- State prefix: `rentstage/production`'
+            echo '- Project: `${{ vars.GCP_PROJECT_ID }}`'
+            echo '- Safety: no update, replacement, destroy, or cross-project action was allowed'
+            echo '- Application deployment: **not available in this workflow**'
+            echo '- Meta credential values: **not managed by Terraform**'
+            echo ''
+            echo 'Disable the apply gate and revoke the temporary project roles now.'
+          } >> "$GITHUB_STEP_SUMMARY"
