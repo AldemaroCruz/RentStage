@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.15.4 — Dark-theme surface and control polish
+
+### Changed
+
+- Replaces remaining fixed white admin surfaces with the shared dark-theme tokens across dashboard metrics, calendars, packages, quotes, reservations, customers, requests, warehouse controls, and dialogs.
+- Restores a single aligned visual boundary for search and prefixed inputs instead of rendering a second dark field inside a light container.
+- Defines the shared purple, muted-ink, and soft-shadow aliases already consumed by late calendar and dashboard components.
+- Preserves semantic green, amber, red, and blue states while reducing harsh contrast and keeping selected, hover, and attention states distinguishable.
+
+### Quality and compatibility
+
+- Adds regression coverage for critical dark surfaces, compound field transparency, and light print tokens.
+- Keeps the existing appearance preference, Quote Portal security model, assistant behavior, API contracts, database schema, cloud infrastructure, and CI/CD topology unchanged.
+- Requires no migration, Terraform apply, secret, IAM permission, service restart procedure, or data reset.
+
 ## 0.15.3 — Customer quote decision and appearance controls
 
 ### Added

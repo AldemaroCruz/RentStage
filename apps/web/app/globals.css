@@ -13033,3 +13033,215 @@ p {
   :root[data-theme="dark"] body { color: #181b2a; background: #fff !important; }
   :root[data-theme="dark"] .panel { color: #181b2a; border-color: #e3e6ee; background: #fff; }
 }
+
+/* RentStage v0.15.4 — complete internal dark-surface contract. */
+:root {
+  --purple: var(--primary);
+  --purple-light: var(--primary-light);
+  --ink-muted: var(--ink-soft);
+  --shadow-soft: var(--shadow-sm);
+}
+
+:root[data-theme="dark"] :is(
+  .operation-metric-card,
+  .inventory-summary-grid > div,
+  .resource-metric-grid > div,
+  .customer-metric-grid article,
+  .quote-metric-strip article,
+  .category-card,
+  .quote-line-card,
+  .warehouse-item-card,
+  .warehouse-assignment-row,
+  .package-line-card,
+  .package-availability-items > div,
+  .calendar-day,
+  .calendar-status-filters button,
+  .icon-action,
+  .modal-card,
+  .modal-close,
+  .workspace-menu,
+  .team-role-cell select,
+  .quote-request-toolbar select,
+  .quote-request-status-card select,
+  .payment-toolbar select,
+  .deposit-toolbar select
+) {
+  color: var(--ink);
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+:root[data-theme="dark"] :is(
+  .form-actions,
+  .quote-lines,
+  .quote-summary-actions,
+  .quote-document-header,
+  .reservation-period-grid,
+  .availability-list article,
+  .warehouse-item-card > header,
+  .warehouse-untracked-note,
+  .warehouse-assign-control,
+  .return-inspection-card > header,
+  .package-card-grid,
+  .package-lines,
+  .calendar-weekday-row,
+  .team-table-head
+) {
+  color: var(--ink);
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .operation-metric-card.needs-attention {
+  border-color: color-mix(in srgb, var(--red) 42%, var(--line));
+  background: linear-gradient(180deg, var(--surface), var(--red-light));
+}
+
+:root[data-theme="dark"] .operation-metric-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 48%, var(--line));
+  box-shadow: var(--shadow-sm);
+}
+
+:root[data-theme="dark"] .operation-metric-icon.value {
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .future-strip {
+  color: var(--ink);
+  border-color: var(--line);
+  background: linear-gradient(90deg, var(--surface-tint), var(--surface));
+}
+
+:root[data-theme="dark"] :is(.future-status, .read-only-chip) {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] :is(.resource-stock i, .category-track) {
+  background: var(--line);
+}
+
+/* Search and prefixed controls are one visual field, not nested boxes. */
+:root[data-theme="dark"] :is(.search-box, .input-prefix) {
+  color: var(--ink-soft);
+  border-color: var(--line-strong);
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] :is(.search-box input, .input-prefix input) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] :is(.search-box, .input-prefix):focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+:root[data-theme="dark"] .data-table th {
+  color: var(--ink-soft);
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .data-table tbody tr:hover {
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] :is(.category-pill, .origin-pill) {
+  color: var(--ink-soft);
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .architecture-note {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--primary) 38%, var(--line));
+  background: var(--surface-tint);
+}
+
+:root[data-theme="dark"] .calendar-view-switch {
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .calendar-view-switch button.active {
+  color: var(--primary);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+:root[data-theme="dark"] .calendar-day.is-outside {
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .calendar-day.is-selected {
+  background: var(--surface-tint);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 38%, transparent);
+}
+
+:root[data-theme="dark"] .calendar-loading {
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+}
+
+:root[data-theme="dark"] .calendar-assignment-pill {
+  color: var(--ink-soft);
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+:root[data-theme="dark"] .agenda-row:hover {
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .overdue-summary-card {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--red) 40%, var(--line));
+  background: linear-gradient(180deg, var(--surface), var(--red-light));
+}
+
+:root[data-theme="dark"] :is(
+  .warehouse-guidance,
+  .warehouse-modal-summary,
+  .invitation-link-card,
+  .quote-request-notes
+) {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--line));
+  background: var(--surface-tint);
+}
+
+:root[data-theme="dark"] :is(
+  .package-availability-status > span,
+  .package-picker-message,
+  .package-picker-availability,
+  .applied-package-list span,
+  .warehouse-modal-assets > span
+) {
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .availability-conflict {
+  border-color: color-mix(in srgb, var(--red) 42%, var(--line)) !important;
+  background: var(--red-light) !important;
+}
+
+@media print {
+  :root[data-theme="dark"] {
+    --bg: #fff;
+    --surface: #fff;
+    --surface-soft: #fafbfc;
+    --surface-tint: #f2f1ff;
+    --ink: #181b2a;
+    --ink-soft: #60667a;
+    --ink-faint: #9297a8;
+    --line: #e5e8f0;
+    --line-strong: #d8dce8;
+    color-scheme: light;
+  }
+}
