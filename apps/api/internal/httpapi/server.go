@@ -11,6 +11,7 @@ import (
 	"github.com/rentstage/rentstage/apps/api/internal/authn"
 	"github.com/rentstage/rentstage/apps/api/internal/config"
 	"github.com/rentstage/rentstage/apps/api/internal/core/audit"
+	"github.com/rentstage/rentstage/apps/api/internal/core/assistant"
 	"github.com/rentstage/rentstage/apps/api/internal/core/availability"
 	"github.com/rentstage/rentstage/apps/api/internal/core/billing"
 	"github.com/rentstage/rentstage/apps/api/internal/core/catalog"
@@ -57,6 +58,11 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	availabilityService := availability.NewService(availabilityRepository)
 	packageRepository := packages.NewRepository(pool)
 	packageService := packages.NewService(packageRepository, availabilityService, auditRepository)
+	assistantRepository := assistant.NewRepository(pool)
+	assistantService := assistant.NewService(
+		assistantRepository, packageRepository, packageService,
+		customerRepository, quoteService, auditRepository,
+	)
 	publicCatalogRepository := publiccatalog.NewRepository(pool)
 	publicCatalogService := publiccatalog.NewService(
 		publicCatalogRepository, packageService, availabilityService, auditRepository,
@@ -83,6 +89,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	inventoryHandler := inventory.NewHandler(inventoryRepository, inventoryService)
 	availabilityHandler := availability.NewHandler(availabilityService)
 	packageHandler := packages.NewHandler(packageRepository, packageService)
+	assistantHandler := assistant.NewHandler(assistantRepository, assistantService)
 	publicCatalogHandler := publiccatalog.NewHandler(publicCatalogService)
 	auditHandler := audit.NewHandler(auditRepository)
 	customerHandler := customer.NewHandler(customerRepository, customerService)
@@ -147,6 +154,10 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	registerTenant("PATCH /api/v1/team/members/{userID}", identity.PermissionTeamManage, identityHandler.UpdateMember)
 
 	registerTenant("GET /api/v1/dashboard", identity.PermissionOperationsRead, dashboardHandler.Get)
+	registerTenant("GET /api/v1/assistant/conversations", identity.PermissionAssistantRead, assistantHandler.List)
+	registerTenant("POST /api/v1/assistant/conversations/simulate", identity.PermissionAssistantManage, assistantHandler.Simulate)
+	registerTenant("GET /api/v1/assistant/conversations/{conversationID}", identity.PermissionAssistantRead, assistantHandler.Get)
+	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/approve", identity.PermissionAssistantManage, assistantHandler.Approve)
 
 	registerTenant("GET /api/v1/categories", identity.PermissionCatalogRead, catalogHandler.ListCategories)
 	registerTenant("POST /api/v1/categories", identity.PermissionCatalogManage, catalogHandler.CreateCategory)

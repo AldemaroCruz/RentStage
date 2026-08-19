@@ -52,6 +52,7 @@ if ($ReadOnly) {
 Invoke-SmokeScript -Name "smoke-public-catalog.ps1" -Arguments $publicArgs
 
 if (-not $ReadOnly) {
+    Invoke-SmokeScript -Name "smoke-assistant.ps1" -Arguments $common
     Invoke-SmokeScript -Name "smoke-quote-portal.ps1" -Arguments $common
     Invoke-SmokeScript -Name "smoke-billing.ps1" -Arguments $common
     Invoke-SmokeScript -Name "smoke-dte.ps1" -Arguments $common

@@ -25,6 +25,7 @@ Write-Host "PowerShell smoke-test engine: $enginePath" -ForegroundColor DarkGray
 $tests = @(
     @{ File = ".\scripts\smoke-auth.ps1"; Arguments = @() },
     @{ File = ".\scripts\smoke-packages.ps1"; Arguments = @() },
+    @{ File = ".\scripts\smoke-assistant.ps1"; Arguments = @() },
     @{ File = ".\scripts\smoke-public-catalog.ps1"; Arguments = @("-SkipSubmission") },
     @{ File = ".\scripts\smoke-quote-portal.ps1"; Arguments = @() },
     @{ File = ".\scripts\smoke-billing.ps1"; Arguments = @() },

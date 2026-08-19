@@ -1,10 +1,20 @@
-# RentStage Starter v0.14.2
+# RentStage Starter v0.15.0
 
-> **Demo comercial para CONAMYPE**: un recorrido guiado conecta inventario, cotización, reserva, facturación y cobro sobre un escenario coherente, desplegable y verificable. WhatsApp + AI permanece presentado como hoja de ruta, no como automatización productiva.
+> **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
 
-## New in v0.14.2
+## New in v0.15.0
+
+- Adds an authenticated WhatsApp-style sales inbox that works immediately in `DEMO` mode, without a Meta Business account or phone number.
+- Converts a structured customer inquiry into a deterministic, auditable package recommendation using current tenant prices and availability.
+- Keeps a human in control: the proposed response is editable and only `OWNER`, `ADMIN`, or `MANAGER` can approve it.
+- Creates a quote in `DRAFT` after approval, never sends a real message, never confirms a reservation, and never blocks inventory automatically.
+- Adds tenant-scoped conversations, messages, proposal evidence, approval actors, a seeded CONAMYPE scenario, and a provider boundary for a future Meta/Vertex connection.
+
+See [`docs/WHATSAPP-ASSISTANT-0.15.0.md`](docs/WHATSAPP-ASSISTANT-0.15.0.md) for the product and safety boundary and [`docs/UPGRADE-0.15.0.md`](docs/UPGRADE-0.15.0.md) for deployment steps.
+
+## Included from v0.14.2
 
 - Adds a manual **Staging Cost Control** workflow with `status`, `pause`, and `resume` operations.
 - Suspends Cloud SQL instance charges while the commercial demo is not in use, without deleting its database, Terraform state, secrets, images, or Cloud Run services.
@@ -24,7 +34,7 @@ Cloud Run already uses zero minimum instances. The cost-control workflow therefo
 - Adds an authenticated seven-minute commercial walkthrough with live readiness checks over the real RentStage modules.
 - Adds a coherent, idempotent demo storyline: accepted quote, confirmed reservation, issued invoice, and partial bank-transfer payment.
 - Links the dashboard and navigation directly to the guided presentation and the tenant's public catalog.
-- Makes the product boundary explicit: DTE is safe only as `MOCK / TEST`, while WhatsApp + AI remains roadmap.
+- Makes the product boundary explicit: DTE is safe only as `MOCK / TEST`.
 - Adds focused readiness unit tests and release-specific upgrade and validation documentation.
 
 This release adds no schema migration, API endpoint, GCP resource, environment variable, or permission. When demo seeding is enabled, it adds stable commercial records to the demo tenant through the existing seed mechanism.
@@ -558,4 +568,4 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Next increment
 
-Use the v0.14.0 guided presentation with prospective users and CONAMYPE to record which step produces the strongest value signal. Candidate increments remain transactional notifications/documents, CSV onboarding, warehouse mobile/QR, and a controlled WhatsApp intake pilot. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.
+Use the v0.15.0 guided presentation with prospective users and CONAMYPE to validate the WhatsApp-style intake, package recommendation, human approval, and quote conversion. The next channel increment is a controlled Meta Business pilot with webhook verification, templates, opt-in evidence, a 24-hour service-window policy, delivery status, and human escalation. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.

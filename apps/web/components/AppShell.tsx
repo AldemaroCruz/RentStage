@@ -77,6 +77,7 @@ type NavItem = { href: string; label: string; icon: IconName; permission?: Permi
 const operationsNavigation: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "dashboard", permission: "operations.read" },
   { href: "/demo", label: "Demo guiada", icon: "sparkles", permission: "operations.read" },
+  { href: "/assistant", label: "WhatsApp AI", icon: "inbox", permission: "assistant.read" },
   { href: "/calendar", label: "Calendario", icon: "calendar", permission: "operations.read" },
   { href: "/packages", label: "Paquetes", icon: "packages", permission: "package.read" },
   { href: "/quotes", label: "Cotizaciones", icon: "quotes", permission: "quote.read" },
@@ -107,6 +108,7 @@ const systemNavigation: NavItem[] = [
 
 function pageTitle(pathname: string): string {
   if (pathname === "/demo") return "Demo comercial";
+  if (pathname === "/assistant") return "WhatsApp Sales Assistant";
   if (pathname === "/calendar") return "Calendario operacional";
   if (pathname === "/reservations/new") return "Nueva reserva";
   if (pathname.startsWith("/reservations/")) return "Detalle de reserva";
@@ -204,7 +206,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           <p className="nav-section-label nav-section-spaced">INVENTARIO</p><NavigationLinks items={inventoryNavigation} pathname={pathname} can={can} />
           <p className="nav-section-label nav-section-spaced">FINANZAS</p><NavigationLinks items={financeNavigation} pathname={pathname} can={can} />
           <p className="nav-section-label nav-section-spaced">SISTEMA</p><NavigationLinks items={systemNavigation} pathname={pathname} can={can} />
-          <p className="nav-section-label nav-section-spaced">PRÓXIMAMENTE</p><span className="nav-link nav-link-disabled"><Icon name="sparkles" /><span>Agente AI</span><small>soon</small></span>
         </nav>
         <div className="sidebar-footer workspace-switcher">
           <button className="tenant-card tenant-card-button" onClick={() => setWorkspaceOpen((value) => !value)}>

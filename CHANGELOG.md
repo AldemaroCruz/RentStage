@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.15.0 — Human-approved WhatsApp sales assistant
+
+### Added
+
+- Adds a tenant-scoped WhatsApp-style inbox with conversations, messages, proposal evidence, channel/consent metadata, approval actors, and quote links.
+- Adds a zero-credential `DEMO` channel that uses live tenant packages, prices, and availability to produce a deterministic recommendation and editable response.
+- Adds owner/admin/manager approval that creates only a quote in `DRAFT`; staff can inspect conversations but cannot approve proposals.
+- Adds an idempotent CONAMYPE seed conversation, focused recommendation tests, and product, upgrade, and validation documentation.
+- Adds a provider boundary for future Meta WhatsApp Business and Vertex Gemini adapters without coupling them to quote or inventory mutation.
+
+### Safety and compatibility
+
+- No real WhatsApp message is sent in v0.15.0 and no Meta account, phone number, token, secret, or new cloud resource is required.
+- The assistant never confirms reservations or blocks inventory. Package availability is checked again at human approval time.
+- Adds database migration `013_whatsapp_sales_assistant.sql`, four authenticated API endpoints, and `assistant.read` / `assistant.manage` permissions.
+- Existing tenant records are preserved. The seeded conversation is inserted only when the existing demo-data switch is enabled.
+
 ## 0.14.2 — Staging cost control
 
 ### Added

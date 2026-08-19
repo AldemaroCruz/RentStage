@@ -566,3 +566,90 @@ INSERT INTO invoice_events (
   ('95000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001', 'ISSUED', 'seed:v0.14.0', '{"invoice_number":140001,"demo":true}'::jsonb),
   ('95000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001', 'PAYMENT_APPLIED', 'seed:v0.14.0', '{"payment_id":"92000000-0000-0000-0000-000000000001","amount":150,"demo":true}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
+
+-- v0.15.0: a presentation-ready WhatsApp-style conversation. The channel is
+-- explicitly DEMO until a real Meta Business sender is connected. The
+-- suggested response remains a draft and no reservation is created.
+INSERT INTO assistant_conversations (
+  id, tenant_id, channel, customer_id, contact_name, contact_phone,
+  status, consent_status, summary, last_message_at
+) VALUES (
+  'a1000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  'DEMO',
+  '40000000-0000-0000-0000-000000000002',
+  'María López',
+  '+50372345678',
+  'HUMAN_REVIEW',
+  'DEMO',
+  'Boda para 100 personas en San Salvador',
+  NOW() - INTERVAL '4 minutes'
+)
+ON CONFLICT (id) DO UPDATE SET
+  status = CASE
+    WHEN assistant_conversations.status = 'QUOTE_DRAFTED' THEN assistant_conversations.status
+    ELSE EXCLUDED.status
+  END,
+  summary = EXCLUDED.summary;
+
+INSERT INTO assistant_messages (
+  id, tenant_id, conversation_id, direction, sender_type, provider,
+  body, status, metadata, created_at
+) VALUES
+  (
+    'a2000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+    'a1000000-0000-0000-0000-000000000001',
+    'INBOUND', 'CUSTOMER', 'DEMO',
+    'Hola, necesito sonido para una boda de 100 personas en San Salvador. ¿Qué paquete me recomienda y cuánto cuesta?',
+    'RECEIVED',
+    jsonb_build_object(
+      'event_type', 'Boda',
+      'event_location', 'San Salvador',
+      'guest_count', 100,
+      'start_at', NOW() + INTERVAL '30 days',
+      'end_at', NOW() + INTERVAL '30 days 8 hours'
+    ),
+    NOW() - INTERVAL '5 minutes'
+  ),
+  (
+    'a2000000-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000001',
+    'a1000000-0000-0000-0000-000000000001',
+    'OUTBOUND', 'ASSISTANT', 'DEMO',
+    '¡Hola, María! Para tu boda en San Salvador te recomendamos Paquete Fiesta 100 personas por $299.00. La disponibilidad está confirmada para el período indicado. Si te parece bien, nuestro equipo puede preparar la cotización formal.',
+    'DRAFT',
+    '{"engine":"DEMO_RULES","human_approval_required":true,"availability_checked":true,"available":true}'::jsonb,
+    NOW() - INTERVAL '4 minutes'
+  )
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO assistant_proposals (
+  id, tenant_id, conversation_id, status, provider, event_type,
+  start_at, end_at, event_location, guest_count, package_id,
+  package_quantity, package_name, package_price, available,
+  recommendation, response_draft, evidence
+)
+SELECT
+  'a3000000-0000-0000-0000-000000000001',
+  package.tenant_id,
+  'a1000000-0000-0000-0000-000000000001',
+  'PROPOSED',
+  'DEMO_RULES',
+  'Boda',
+  NOW() + INTERVAL '30 days',
+  NOW() + INTERVAL '30 days 8 hours',
+  'San Salvador',
+  100,
+  package.id,
+  1,
+  package.name,
+  299.00,
+  TRUE,
+  'Paquete dimensionado para 100 personas, con inventario real y precio comercial configurado.',
+  '¡Hola, María! Para tu boda en San Salvador te recomendamos Paquete Fiesta 100 personas por $299.00. La disponibilidad está confirmada para el período indicado. Si te parece bien, nuestro equipo puede preparar la cotización formal.',
+  '{"engine":"DEMO_RULES","human_approval_required":true,"availability_checked":true,"available":true,"candidate_count":1}'::jsonb
+FROM packages package
+WHERE package.tenant_id = '00000000-0000-0000-0000-000000000001'
+  AND package.slug = 'paquete-fiesta-100-personas'
+ON CONFLICT (id) DO NOTHING;

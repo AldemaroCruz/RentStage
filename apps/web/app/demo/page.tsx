@@ -143,7 +143,7 @@ export default function CommercialDemoPage() {
     <div className="page-stack commercial-demo-page">
       <section className="demo-hero">
         <div className="demo-hero-copy">
-          <p className="eyebrow light-eyebrow">DEMO COMERCIAL · v0.14.0</p>
+          <p className="eyebrow light-eyebrow">DEMO COMERCIAL · v0.15.0</p>
           <h2>De una consulta a un cobro, en siete minutos.</h2>
           <p>Presenta cómo una MYPE de alquiler convierte su inventario en ventas y coordina cada evento desde una sola operación.</p>
           <div className="demo-hero-actions">
@@ -210,12 +210,13 @@ export default function CommercialDemoPage() {
         </article>
 
         <article className="panel demo-ai-card">
-          <span className="demo-roadmap-badge">SIGUIENTE DIFERENCIADOR</span>
+          <span className="demo-roadmap-badge">NUEVO · V0.15</span>
           <div className="demo-ai-icon">✦</div>
           <h2>WhatsApp + AI, con control humano</h2>
-          <p>La arquitectura ya prepara catálogo, disponibilidad y cotizaciones para conversaciones asistidas. La automatización conversacional es hoja de ruta; no está habilitada como canal productivo en esta versión.</p>
-          <div className="demo-ai-boundary"><strong>v0.14.0</strong><span>Operación integrada y demostrable</span></div>
-          <div className="demo-ai-boundary future"><strong>Roadmap</strong><span>Captura y seguimiento conversacional</span></div>
+          <p>El simulador integrado convierte una consulta en recomendación, disponibilidad y cotización DRAFT sobre datos reales. La respuesta y la cotización requieren aprobación humana.</p>
+          <div className="demo-ai-boundary"><strong>v0.15.0</strong><span>Inbox, análisis, aprobación y auditoría</span></div>
+          <div className="demo-ai-boundary future"><strong>Después</strong><span>Conectar Meta Business sin cambiar el flujo</span></div>
+          <Link className="button button-primary" href="/assistant">Abrir WhatsApp AI →</Link>
         </article>
       </section>
 

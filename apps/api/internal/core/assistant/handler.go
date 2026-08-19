@@ -1,0 +1,104 @@
+package assistant
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/rentstage/rentstage/apps/api/internal/idutil"
+	"github.com/rentstage/rentstage/apps/api/internal/webutil"
+)
+
+type Handler struct {
+	repository *Repository
+	service    *Service
+}
+
+func NewHandler(repository *Repository, service *Service) *Handler {
+	return &Handler{repository: repository, service: service}
+}
+
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
+	items, err := h.repository.List(r.Context(), webutil.TenantID(r.Context()))
+	if err != nil {
+		webutil.WriteError(w, r, http.StatusInternalServerError, "assistant_list_failed", "Could not load assistant conversations.")
+		return
+	}
+	webutil.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
+	conversationID, ok := conversationPathID(w, r)
+	if !ok {
+		return
+	}
+	item, err := h.repository.Get(r.Context(), webutil.TenantID(r.Context()), conversationID)
+	if h.writeFailure(w, r, nil, err) {
+		return
+	}
+	webutil.WriteJSON(w, http.StatusOK, item)
+}
+
+func (h *Handler) Simulate(w http.ResponseWriter, r *http.Request) {
+	var input SimulateInput
+	if err := webutil.DecodeJSON(r, &input); err != nil {
+		webutil.WriteError(w, r, http.StatusBadRequest, "invalid_json", "The request body is not valid JSON.")
+		return
+	}
+	item, fields, err := h.service.Simulate(r.Context(), webutil.TenantID(r.Context()), input)
+	if h.writeFailure(w, r, fields, err) {
+		return
+	}
+	webutil.WriteJSON(w, http.StatusCreated, item)
+}
+
+func (h *Handler) Approve(w http.ResponseWriter, r *http.Request) {
+	conversationID, ok := conversationPathID(w, r)
+	if !ok {
+		return
+	}
+	var input ApproveInput
+	if err := webutil.DecodeJSON(r, &input); err != nil {
+		webutil.WriteError(w, r, http.StatusBadRequest, "invalid_json", "The request body is not valid JSON.")
+		return
+	}
+	item, fields, err := h.service.Approve(
+		r.Context(), webutil.TenantID(r.Context()), conversationID, input,
+	)
+	if h.writeFailure(w, r, fields, err) {
+		return
+	}
+	webutil.WriteJSON(w, http.StatusOK, item)
+}
+
+func (h *Handler) writeFailure(w http.ResponseWriter, r *http.Request, fields map[string]string, err error) bool {
+	if len(fields) > 0 {
+		webutil.WriteValidationError(w, r, fields)
+		return true
+	}
+	switch {
+	case errors.Is(err, ErrNotFound):
+		webutil.WriteError(w, r, http.StatusNotFound, "assistant_conversation_not_found", "Assistant conversation not found.")
+	case errors.Is(err, ErrNoReadyPackage):
+		webutil.WriteError(w, r, http.StatusConflict, "assistant_package_missing", "Create at least one ready commercial package before simulating a conversation.")
+	case errors.Is(err, ErrUnavailable):
+		webutil.WriteError(w, r, http.StatusConflict, "assistant_package_unavailable", "Availability changed. Review the package before creating a quote draft.")
+	case errors.Is(err, ErrAlreadyApproved):
+		webutil.WriteError(w, r, http.StatusConflict, "assistant_already_approved", "This proposal already created a quote draft.")
+	case errors.Is(err, ErrCustomerMissing):
+		webutil.WriteError(w, r, http.StatusUnprocessableEntity, "assistant_customer_missing", "Select an existing customer for the quote draft.")
+	case err != nil:
+		webutil.WriteError(w, r, http.StatusInternalServerError, "assistant_operation_failed", "Could not complete the assistant operation.")
+	default:
+		return false
+	}
+	return true
+}
+
+func conversationPathID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	value := r.PathValue("conversationID")
+	if !idutil.IsUUID(value) {
+		webutil.WriteError(w, r, http.StatusBadRequest, "invalid_conversation_id", "Conversation ID is invalid.")
+		return "", false
+	}
+	return value, true
+}

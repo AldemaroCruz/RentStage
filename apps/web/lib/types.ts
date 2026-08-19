@@ -224,6 +224,69 @@ export type Customer = {
   updated_at: string;
 };
 
+export type AssistantConversationStatus = "OPEN" | "HUMAN_REVIEW" | "QUOTE_DRAFTED" | "CLOSED";
+
+export type AssistantConversationSummary = {
+  id: string;
+  channel: "DEMO" | "WHATSAPP";
+  customer_id?: string;
+  customer_name?: string;
+  contact_name: string;
+  contact_phone: string;
+  status: AssistantConversationStatus;
+  consent_status: "DEMO" | "OPTED_IN" | "UNKNOWN" | "OPTED_OUT";
+  summary: string;
+  last_message: string;
+  last_message_at: string;
+  quote_id?: string;
+  quote_number?: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssistantMessage = {
+  id: string;
+  direction: "INBOUND" | "OUTBOUND";
+  sender_type: "CUSTOMER" | "ASSISTANT" | "USER" | "SYSTEM";
+  provider: "DEMO" | "WHATSAPP";
+  body: string;
+  status: "RECEIVED" | "DRAFT" | "APPROVED" | "SENT" | "FAILED";
+  metadata: Record<string, unknown>;
+  approved_by?: string;
+  approved_at?: string;
+  created_at: string;
+};
+
+export type AssistantProposal = {
+  id: string;
+  status: "PROPOSED" | "APPROVED" | "QUOTE_CREATED" | "REJECTED";
+  provider: "DEMO_RULES" | "VERTEX_GEMINI";
+  event_type: string;
+  start_at: string;
+  end_at: string;
+  event_location: string;
+  guest_count: number;
+  package_id: string;
+  package_quantity: number;
+  package_name: string;
+  package_price: number;
+  available: boolean;
+  recommendation: string;
+  response_draft: string;
+  evidence: Record<string, unknown>;
+  quote_id?: string;
+  quote_number?: number;
+  approved_by?: string;
+  approved_at?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssistantConversationDetail = AssistantConversationSummary & {
+  messages: AssistantMessage[];
+  proposal?: AssistantProposal;
+};
+
 export type QuoteStatus =
   | "DRAFT"
   | "SENT"
@@ -1136,7 +1199,9 @@ export type Permission =
   | "reservation.read"
   | "reservation.manage"
   | "warehouse.operate"
-  | "operations.read";
+  | "operations.read"
+  | "assistant.read"
+  | "assistant.manage";
 
 export type AuthUser = {
   id: string;

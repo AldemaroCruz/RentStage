@@ -42,6 +42,8 @@ const (
 	PermissionReservationManage   Permission = "reservation.manage"
 	PermissionWarehouseOperate    Permission = "warehouse.operate"
 	PermissionOperationsRead      Permission = "operations.read"
+	PermissionAssistantRead       Permission = "assistant.read"
+	PermissionAssistantManage     Permission = "assistant.manage"
 )
 
 var allPermissions = []Permission{
@@ -73,6 +75,8 @@ var allPermissions = []Permission{
 	PermissionReservationManage,
 	PermissionWarehouseOperate,
 	PermissionOperationsRead,
+	PermissionAssistantRead,
+	PermissionAssistantManage,
 }
 
 func PermissionsForRole(role Role) []Permission {
@@ -103,6 +107,8 @@ func PermissionsForRole(role Role) []Permission {
 			PermissionReservationManage,
 			PermissionWarehouseOperate,
 			PermissionOperationsRead,
+			PermissionAssistantRead,
+			PermissionAssistantManage,
 		}
 	case RoleStaff:
 		return []Permission{
@@ -121,6 +127,7 @@ func PermissionsForRole(role Role) []Permission {
 			PermissionReservationRead,
 			PermissionWarehouseOperate,
 			PermissionOperationsRead,
+			PermissionAssistantRead,
 		}
 	default:
 		return nil
