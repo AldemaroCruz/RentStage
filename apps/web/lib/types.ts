@@ -276,6 +276,13 @@ export type AssistantProposal = {
   evidence: Record<string, unknown>;
   quote_id?: string;
   quote_number?: number;
+  quote_status?: QuoteStatus;
+  portal_status?: "ACTIVE" | "ACCEPTED" | "REJECTED" | "REVOKED" | "EXPIRED";
+  portal_view_count: number;
+  portal_viewed_at?: string;
+  portal_decision_at?: string;
+  reservation_id?: string;
+  reservation_number?: number;
   approved_by?: string;
   approved_at?: string;
   created_at: string;
@@ -285,6 +292,12 @@ export type AssistantProposal = {
 export type AssistantConversationDetail = AssistantConversationSummary & {
   messages: AssistantMessage[];
   proposal?: AssistantProposal;
+  portal_delivery?: {
+    quote_id: string;
+    quote_number: number;
+    public_url: string;
+    expires_at: string;
+  };
 };
 
 export type QuoteStatus =

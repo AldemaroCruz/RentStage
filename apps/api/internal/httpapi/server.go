@@ -58,11 +58,6 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	availabilityService := availability.NewService(availabilityRepository)
 	packageRepository := packages.NewRepository(pool)
 	packageService := packages.NewService(packageRepository, availabilityService, auditRepository)
-	assistantRepository := assistant.NewRepository(pool)
-	assistantService := assistant.NewService(
-		assistantRepository, packageRepository, packageService,
-		customerRepository, quoteService, auditRepository,
-	)
 	publicCatalogRepository := publiccatalog.NewRepository(pool)
 	publicCatalogService := publiccatalog.NewService(
 		publicCatalogRepository, packageService, availabilityService, auditRepository,
@@ -74,6 +69,11 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	quotePortalService := quoteportal.NewService(
 		quotePortalRepository, quoteRepository, auditRepository,
 		cfg.WebBaseURL, cfg.PublicRequestFingerprintSalt,
+	)
+	assistantRepository := assistant.NewRepository(pool)
+	assistantService := assistant.NewService(
+		assistantRepository, packageRepository, packageService,
+		customerRepository, quoteService, quotePortalService, auditRepository,
 	)
 	operationsRepository := operations.NewRepository(pool)
 	billingRepository := billing.NewRepository(pool)
@@ -161,6 +161,16 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/customer", identity.PermissionAssistantManage, assistantHandler.LinkCustomer)
 	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/messages/send-demo", identity.PermissionAssistantManage, assistantHandler.SendDemo)
 	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/messages/receive-demo", identity.PermissionAssistantManage, assistantHandler.ReceiveDemo)
+	mux.Handle(
+		"POST /api/v1/assistant/conversations/{conversationID}/quote/share-demo",
+		chain(
+			http.HandlerFunc(assistantHandler.ShareQuoteDemo),
+			authenticated,
+			tenantContext,
+			permissionMiddleware(identity.PermissionAssistantManage),
+			permissionMiddleware(identity.PermissionQuoteManage),
+		),
+	)
 
 	registerTenant("GET /api/v1/categories", identity.PermissionCatalogRead, catalogHandler.ListCategories)
 	registerTenant("POST /api/v1/categories", identity.PermissionCatalogManage, catalogHandler.CreateCategory)

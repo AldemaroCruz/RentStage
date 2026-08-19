@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/rentstage/rentstage/apps/api/internal/core/quoteportal"
 	"github.com/rentstage/rentstage/apps/api/internal/idutil"
 	"github.com/rentstage/rentstage/apps/api/internal/webutil"
 )
@@ -127,6 +128,30 @@ func (h *Handler) ReceiveDemo(w http.ResponseWriter, r *http.Request) {
 	webutil.WriteJSON(w, http.StatusOK, item)
 }
 
+func (h *Handler) ShareQuoteDemo(w http.ResponseWriter, r *http.Request) {
+	conversationID, ok := conversationPathID(w, r)
+	if !ok {
+		return
+	}
+	var input ShareQuoteDemoInput
+	if err := webutil.DecodeJSON(r, &input); err != nil {
+		webutil.WriteError(w, r, http.StatusBadRequest, "invalid_json", "The request body is not valid JSON.")
+		return
+	}
+	item, fields, err := h.service.ShareQuoteDemo(
+		r.Context(), webutil.TenantID(r.Context()), conversationID, input,
+	)
+	if h.writeFailure(w, r, fields, err) {
+		return
+	}
+	// A newly issued portal URL contains a raw bearer token. It is returned
+	// exactly once and must never be cached by browsers or intermediaries.
+	w.Header().Set("Cache-Control", "no-store, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	webutil.WriteJSON(w, http.StatusOK, item)
+}
+
 func (h *Handler) writeFailure(w http.ResponseWriter, r *http.Request, fields map[string]string, err error) bool {
 	if len(fields) > 0 {
 		webutil.WriteValidationError(w, r, fields)
@@ -147,6 +172,16 @@ func (h *Handler) writeFailure(w http.ResponseWriter, r *http.Request, fields ma
 		webutil.WriteError(w, r, http.StatusConflict, "assistant_demo_only", "This operation is available only in the simulated demo channel.")
 	case errors.Is(err, ErrMessageNotReady):
 		webutil.WriteError(w, r, http.StatusConflict, "assistant_message_not_ready", "The selected message was already sent or is no longer awaiting approval.")
+	case errors.Is(err, ErrQuoteMissing):
+		webutil.WriteError(w, r, http.StatusConflict, "assistant_quote_missing", "Create the quote draft before sharing a customer portal.")
+	case errors.Is(err, ErrPortalDeliveryMissing):
+		webutil.WriteError(w, r, http.StatusInternalServerError, "assistant_portal_delivery_missing", "The secure customer link was not returned.")
+	case errors.Is(err, quoteportal.ErrPortalDisabled):
+		webutil.WriteError(w, r, http.StatusConflict, "quote_portal_disabled", "Enable the Quote Portal for this workspace before sharing the quote.")
+	case errors.Is(err, quoteportal.ErrQuoteNotFound):
+		webutil.WriteError(w, r, http.StatusNotFound, "quote_not_found", "The quote linked to this conversation was not found.")
+	case errors.Is(err, quoteportal.ErrInvalidQuoteStatus), errors.Is(err, quoteportal.ErrInvalidPortalStatus):
+		webutil.WriteError(w, r, http.StatusConflict, "invalid_quote_portal_status", "The quote or its portal can no longer be shared from this state.")
 	case err != nil:
 		webutil.WriteError(w, r, http.StatusInternalServerError, "assistant_operation_failed", "Could not complete the assistant operation.")
 	default:

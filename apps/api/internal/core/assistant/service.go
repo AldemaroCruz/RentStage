@@ -11,6 +11,7 @@ import (
 	"github.com/rentstage/rentstage/apps/api/internal/core/customer"
 	"github.com/rentstage/rentstage/apps/api/internal/core/packages"
 	"github.com/rentstage/rentstage/apps/api/internal/core/quote"
+	"github.com/rentstage/rentstage/apps/api/internal/core/quoteportal"
 	"github.com/rentstage/rentstage/apps/api/internal/idutil"
 	"github.com/rentstage/rentstage/apps/api/internal/webutil"
 )
@@ -21,6 +22,7 @@ type Service struct {
 	packageService     *packages.Service
 	customerRepository *customer.Repository
 	quoteService       *quote.Service
+	quotePortalService *quoteportal.Service
 	audit              *audit.Repository
 }
 
@@ -30,12 +32,14 @@ func NewService(
 	packageService *packages.Service,
 	customerRepository *customer.Repository,
 	quoteService *quote.Service,
+	quotePortalService *quoteportal.Service,
 	auditRepository *audit.Repository,
 ) *Service {
 	return &Service{
 		repository: repository, packageRepository: packageRepository,
 		packageService: packageService, customerRepository: customerRepository,
-		quoteService: quoteService, audit: auditRepository,
+		quoteService: quoteService, quotePortalService: quotePortalService,
+		audit: auditRepository,
 	}
 }
 
@@ -351,6 +355,82 @@ func (s *Service) ReceiveDemo(
 		"human_approval_required": true,
 	})
 	return received, nil, nil
+}
+
+func (s *Service) ShareQuoteDemo(
+	ctx context.Context,
+	tenantID, conversationID string,
+	input ShareQuoteDemoInput,
+) (ConversationDetail, map[string]string, error) {
+	input.Body = strings.TrimSpace(input.Body)
+	if len(input.Body) > 2000 {
+		return ConversationDetail{}, map[string]string{
+			"body": "Message must contain 2,000 characters or fewer.",
+		}, nil
+	}
+
+	detail, err := s.repository.Get(ctx, tenantID, conversationID)
+	if err != nil {
+		return ConversationDetail{}, nil, err
+	}
+	if detail.Channel != "DEMO" {
+		return ConversationDetail{}, nil, ErrDemoOnly
+	}
+	if detail.Proposal == nil || detail.Proposal.QuoteID == nil || detail.Proposal.QuoteNumber == nil {
+		return ConversationDetail{}, nil, ErrQuoteMissing
+	}
+
+	actorID := webutil.ActorID(ctx)
+	var issued quote.Detail
+	if detail.Proposal.QuoteStatus != nil && *detail.Proposal.QuoteStatus == "SENT" {
+		issued, err = s.quotePortalService.Reissue(ctx, tenantID, *detail.Proposal.QuoteID, actorID)
+	} else {
+		issued, err = s.quotePortalService.Send(ctx, tenantID, *detail.Proposal.QuoteID, actorID)
+	}
+	if err != nil {
+		return ConversationDetail{}, nil, err
+	}
+	if issued.Portal == nil || issued.Portal.PublicURL == "" {
+		return ConversationDetail{}, nil, ErrPortalDeliveryMissing
+	}
+
+	body := input.Body
+	if body == "" {
+		body = defaultPortalMessage(issued.QuoteNumber)
+	}
+	recorded, recordErr := s.repository.RecordQuoteShared(
+		ctx, tenantID, conversationID, issued.QuoteNumber,
+		issued.Portal.Revision, body, actorID,
+	)
+	if recordErr != nil {
+		// Issuing the portal already invalidated any previous raw token. Keep
+		// returning the new one-time URL even if the optional chat transcript
+		// could not be refreshed; otherwise the only usable token would be lost.
+		recorded = detail
+		recorded.Proposal.QuoteStatus = &issued.Status
+		recorded.Proposal.PortalStatus = &issued.Portal.Status
+		recorded.Proposal.PortalViewCount = issued.Portal.ViewCount
+		recorded.Proposal.PortalViewedAt = issued.Portal.LastViewedAt
+		recorded.Proposal.PortalDecisionAt = issued.Portal.DecisionAt
+	}
+	recorded.PortalDelivery = &PortalDelivery{
+		QuoteID: issued.ID, QuoteNumber: issued.QuoteNumber,
+		PublicURL: issued.Portal.PublicURL, ExpiresAt: issued.Portal.ExpiresAt,
+	}
+	_ = s.audit.Record(ctx, tenantID, "ASSISTANT_QUOTE_PORTAL_SHARED_DEMO", "assistant_conversation", &conversationID, map[string]any{
+		"quote_id": issued.ID, "quote_number": issued.QuoteNumber,
+		"portal_revision":        issued.Portal.Revision,
+		"chat_evidence_recorded": recordErr == nil,
+		"raw_token_persisted":    false, "real_phone_delivery": false,
+	})
+	return recorded, nil, nil
+}
+
+func defaultPortalMessage(quoteNumber int64) string {
+	return fmt.Sprintf(
+		"Te compartimos la cotización COT-%06d para que revises fechas, precios y condiciones en el portal seguro de RentStage.",
+		quoteNumber,
+	)
 }
 
 func draftDemoReply(detail ConversationDetail, inboundBody string) string {

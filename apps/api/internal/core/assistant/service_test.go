@@ -79,3 +79,17 @@ func TestDraftDemoReplyUsesSafeFallback(t *testing.T) {
 		t.Fatalf("unexpected fallback reply: %s", result)
 	}
 }
+
+func TestDefaultPortalMessageContainsOnlyDisplayIdentifier(t *testing.T) {
+	result := defaultPortalMessage(73)
+	for _, expected := range []string{"COT-000073", "portal seguro"} {
+		if !strings.Contains(result, expected) {
+			t.Fatalf("expected %q in portal message: %s", expected, result)
+		}
+	}
+	for _, forbidden := range []string{"/q#", "token", "reserva confirmada"} {
+		if strings.Contains(strings.ToLower(result), forbidden) {
+			t.Fatalf("portal message must not contain %q: %s", forbidden, result)
+		}
+	}
+}

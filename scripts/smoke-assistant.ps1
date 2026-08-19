@@ -202,6 +202,78 @@ try {
         throw "The delivered follow-up did not preserve the quote-drafted conversation state."
     }
 
+    Write-Step "Sharing the quote portal without persisting its bearer token"
+    $shared = Invoke-RestMethod `
+        -Method Post `
+        -Uri "$ApiBase/api/v1/assistant/conversations/$($conversation.id)/quote/share-demo" `
+        -WebSession $webSession `
+        -Headers $headers `
+        -ContentType "application/json" `
+        -Body (@{ body = "Revisa la cotización en el portal seguro y registra allí tu decisión." } | ConvertTo-Json)
+
+    if ($shared.proposal.quote_status -ne "SENT" -or $shared.proposal.portal_status -ne "ACTIVE") {
+        throw "Sharing from the assistant did not activate the quote portal."
+    }
+    if (-not $shared.portal_delivery.public_url) {
+        throw "The assistant did not return the one-time customer portal URL."
+    }
+
+    [Uri]$portalURL = $shared.portal_delivery.public_url
+    $portalToken = $portalURL.Fragment.TrimStart("#")
+    if ($portalURL.AbsolutePath -ne "/q" -or $portalURL.Query -ne "" -or -not $portalToken) {
+        throw "The assistant portal URL must keep its bearer token only in the URL fragment."
+    }
+
+    $serializedMessages = $shared.messages | ConvertTo-Json -Depth 12 -Compress
+    if ($serializedMessages.Contains($portalToken) -or $serializedMessages.Contains($shared.portal_delivery.public_url)) {
+        throw "The raw quote portal credential leaked into the assistant transcript."
+    }
+    $portalEvidence = @(
+        $shared.messages |
+            Where-Object { $_.metadata.message_kind -eq "QUOTE_PORTAL" }
+    )
+    if ($portalEvidence.Count -eq 0 -or $portalEvidence[-1].metadata.raw_token_persisted -ne $false) {
+        throw "The assistant did not record sanitized portal-delivery evidence."
+    }
+
+    $publicHeaders = @{ "X-RentStage-Quote-Token" = $portalToken }
+    $publicView = Invoke-RestMethod `
+        -Method Get `
+        -Uri "$ApiBase/api/v1/public/quote-portal" `
+        -WebSession $webSession `
+        -Headers $publicHeaders
+    if ($publicView.portal.status -ne "ACTIVE" -or -not $publicView.portal.can_reject) {
+        throw "The customer portal is not available for an explicit demo decision."
+    }
+
+    Write-Step "Rejecting explicitly as the simulated customer"
+    $decisionHeaders = @{
+        "X-CSRF-Token" = $csrfResponse.csrf_token
+        "X-RentStage-Quote-Token" = $portalToken
+    }
+    $decision = Invoke-RestMethod `
+        -Method Post `
+        -Uri "$ApiBase/api/v1/public/quote-portal/reject" `
+        -WebSession $webSession `
+        -Headers $decisionHeaders `
+        -ContentType "application/json" `
+        -Body (@{
+            response_name = "Cliente Smoke"
+            response_email = ""
+            rejection_reason = "Decisión simulada para validar el flujo sin reservar inventario."
+        } | ConvertTo-Json)
+    if ($decision.status -ne "REJECTED" -or $decision.reservation_number) {
+        throw "The explicit rejection produced an unexpected reservation or portal state."
+    }
+
+    $refreshed = Invoke-RestMethod `
+        -Method Get `
+        -Uri "$ApiBase/api/v1/assistant/conversations/$($conversation.id)" `
+        -WebSession $webSession
+    if ($refreshed.proposal.portal_status -ne "REJECTED" -or $refreshed.proposal.reservation_id) {
+        throw "The assistant did not reflect the customer rejection without a reservation."
+    }
+
     Write-Step "Closing the server session"
     Invoke-RestMethod `
         -Method Delete `

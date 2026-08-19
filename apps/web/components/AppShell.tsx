@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { api } from "@/lib/api";
 import type { OperationAlertsResult, Permission } from "@/lib/types";
 
@@ -223,6 +224,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="topbar">
           <div className="topbar-left"><button className="icon-button mobile-menu" onClick={() => setMenuOpen(true)} aria-label="Abrir menú"><Icon name="menu" /></button><div><p className="eyebrow">RENTSTAGE ADMIN</p><h1>{pageTitle(pathname)}</h1></div></div>
           <div className="topbar-actions">
+            <ThemeToggle />
             {can("operations.read") && <Link className="icon-button notification-button" href="/calendar#operations-alerts" aria-label={`${alertsCount} alertas operativas`}><Icon name="bell" />{alertsCount > 0 && <span className="notification-count">{alertsCount > 99 ? "99+" : alertsCount}</span>}</Link>}
             <div className="profile-menu-wrap">
               <button className="profile-chip profile-chip-button" onClick={() => setProfileOpen((value) => !value)}><span>{userInitials}</span><div><strong>{me?.user.display_name || "Usuario"}</strong><small>{workspace?.role || "Sin rol"}</small></div><Icon name="chevron" size={15} /></button>

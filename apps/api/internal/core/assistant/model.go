@@ -6,13 +6,15 @@ import (
 )
 
 var (
-	ErrNotFound        = errors.New("assistant conversation not found")
-	ErrNoReadyPackage  = errors.New("no ready commercial package")
-	ErrUnavailable     = errors.New("assistant proposal is unavailable")
-	ErrAlreadyApproved = errors.New("assistant proposal is already approved")
-	ErrCustomerMissing = errors.New("assistant customer not found")
-	ErrDemoOnly        = errors.New("assistant operation is only available in demo")
-	ErrMessageNotReady = errors.New("assistant message is not ready to send")
+	ErrNotFound              = errors.New("assistant conversation not found")
+	ErrNoReadyPackage        = errors.New("no ready commercial package")
+	ErrUnavailable           = errors.New("assistant proposal is unavailable")
+	ErrAlreadyApproved       = errors.New("assistant proposal is already approved")
+	ErrCustomerMissing       = errors.New("assistant customer not found")
+	ErrDemoOnly              = errors.New("assistant operation is only available in demo")
+	ErrMessageNotReady       = errors.New("assistant message is not ready to send")
+	ErrQuoteMissing          = errors.New("assistant quote is missing")
+	ErrPortalDeliveryMissing = errors.New("assistant quote portal delivery is missing")
 )
 
 type ConversationSummary struct {
@@ -47,34 +49,51 @@ type Message struct {
 }
 
 type Proposal struct {
-	ID              string         `json:"id"`
-	Status          string         `json:"status"`
-	Provider        string         `json:"provider"`
-	EventType       string         `json:"event_type"`
-	StartAt         time.Time      `json:"start_at"`
-	EndAt           time.Time      `json:"end_at"`
-	EventLocation   string         `json:"event_location"`
-	GuestCount      int            `json:"guest_count"`
-	PackageID       string         `json:"package_id"`
-	PackageQuantity int            `json:"package_quantity"`
-	PackageName     string         `json:"package_name"`
-	PackagePrice    float64        `json:"package_price"`
-	Available       bool           `json:"available"`
-	Recommendation  string         `json:"recommendation"`
-	ResponseDraft   string         `json:"response_draft"`
-	Evidence        map[string]any `json:"evidence"`
-	QuoteID         *string        `json:"quote_id,omitempty"`
-	QuoteNumber     *int64         `json:"quote_number,omitempty"`
-	ApprovedBy      *string        `json:"approved_by,omitempty"`
-	ApprovedAt      *time.Time     `json:"approved_at,omitempty"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
+	ID                string         `json:"id"`
+	Status            string         `json:"status"`
+	Provider          string         `json:"provider"`
+	EventType         string         `json:"event_type"`
+	StartAt           time.Time      `json:"start_at"`
+	EndAt             time.Time      `json:"end_at"`
+	EventLocation     string         `json:"event_location"`
+	GuestCount        int            `json:"guest_count"`
+	PackageID         string         `json:"package_id"`
+	PackageQuantity   int            `json:"package_quantity"`
+	PackageName       string         `json:"package_name"`
+	PackagePrice      float64        `json:"package_price"`
+	Available         bool           `json:"available"`
+	Recommendation    string         `json:"recommendation"`
+	ResponseDraft     string         `json:"response_draft"`
+	Evidence          map[string]any `json:"evidence"`
+	QuoteID           *string        `json:"quote_id,omitempty"`
+	QuoteNumber       *int64         `json:"quote_number,omitempty"`
+	QuoteStatus       *string        `json:"quote_status,omitempty"`
+	PortalStatus      *string        `json:"portal_status,omitempty"`
+	PortalViewCount   int            `json:"portal_view_count"`
+	PortalViewedAt    *time.Time     `json:"portal_viewed_at,omitempty"`
+	PortalDecisionAt  *time.Time     `json:"portal_decision_at,omitempty"`
+	ReservationID     *string        `json:"reservation_id,omitempty"`
+	ReservationNumber *int64         `json:"reservation_number,omitempty"`
+	ApprovedBy        *string        `json:"approved_by,omitempty"`
+	ApprovedAt        *time.Time     `json:"approved_at,omitempty"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
 }
 
 type ConversationDetail struct {
 	ConversationSummary
-	Messages []Message `json:"messages"`
-	Proposal *Proposal `json:"proposal,omitempty"`
+	Messages       []Message       `json:"messages"`
+	Proposal       *Proposal       `json:"proposal,omitempty"`
+	PortalDelivery *PortalDelivery `json:"portal_delivery,omitempty"`
+}
+
+// PortalDelivery deliberately exists only in the response that issues a new
+// bearer link. The repository never persists PublicURL or its raw token.
+type PortalDelivery struct {
+	QuoteID     string    `json:"quote_id"`
+	QuoteNumber int64     `json:"quote_number"`
+	PublicURL   string    `json:"public_url"`
+	ExpiresAt   time.Time `json:"expires_at"`
 }
 
 type SimulateInput struct {
@@ -103,6 +122,10 @@ type SendDemoInput struct {
 }
 
 type ReceiveDemoInput struct {
+	Body string `json:"body"`
+}
+
+type ShareQuoteDemoInput struct {
 	Body string `json:"body"`
 }
 

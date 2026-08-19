@@ -390,6 +390,53 @@ func (r *Repository) ReceiveDemo(
 	return r.Get(ctx, tenantID, conversationID)
 }
 
+func (r *Repository) RecordQuoteShared(
+	ctx context.Context,
+	tenantID, conversationID string,
+	quoteNumber int64,
+	portalRevision int,
+	body, actorID string,
+) (ConversationDetail, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return ConversationDetail{}, fmt.Errorf("begin demo quote share: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := requireDemoConversation(ctx, tx, tenantID, conversationID); err != nil {
+		return ConversationDetail{}, err
+	}
+	metadata, _ := json.Marshal(map[string]any{
+		"message_kind":        "QUOTE_PORTAL",
+		"quote_number":        quoteNumber,
+		"portal_revision":     portalRevision,
+		"simulated_delivery":  true,
+		"raw_token_persisted": false,
+	})
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO assistant_messages (
+			tenant_id, conversation_id, direction, sender_type, provider,
+			body, status, metadata, created_by, approved_by, approved_at
+		) VALUES (
+			$1, $2, 'OUTBOUND', 'USER', 'DEMO', $3, 'SENT', $4::jsonb,
+			NULLIF($5, '')::uuid, NULLIF($5, '')::uuid, NOW()
+		)
+	`, tenantID, conversationID, body, string(metadata), actorID); err != nil {
+		return ConversationDetail{}, fmt.Errorf("record demo quote share: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE assistant_conversations
+		SET status = 'QUOTE_DRAFTED', last_message_at = NOW()
+		WHERE tenant_id = $1 AND id = $2
+	`, tenantID, conversationID); err != nil {
+		return ConversationDetail{}, fmt.Errorf("update demo quote share status: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return ConversationDetail{}, fmt.Errorf("commit demo quote share: %w", err)
+	}
+	return r.Get(ctx, tenantID, conversationID)
+}
+
 type demoConversationQuerier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
@@ -426,11 +473,18 @@ func (r *Repository) getProposal(ctx context.Context, tenantID, conversationID s
 		       proposal.package_name, proposal.package_price::float8,
 		       proposal.available, proposal.recommendation, proposal.response_draft,
 		       proposal.evidence, proposal.quote_id, quote.quote_number,
+		       quote.status, portal.status, COALESCE(portal.view_count, 0),
+		       portal.last_viewed_at, portal.decision_at,
+		       reservation.id, reservation.reservation_number,
 		       proposal.approved_by, proposal.approved_at,
 		       proposal.created_at, proposal.updated_at
 		FROM assistant_proposals proposal
 		LEFT JOIN quotes quote
 		  ON quote.tenant_id = proposal.tenant_id AND quote.id = proposal.quote_id
+		LEFT JOIN quote_portals portal
+		  ON portal.tenant_id = proposal.tenant_id AND portal.quote_id = proposal.quote_id
+		LEFT JOIN reservations reservation
+		  ON reservation.tenant_id = proposal.tenant_id AND reservation.quote_id = proposal.quote_id
 		WHERE proposal.tenant_id = $1 AND proposal.conversation_id = $2
 	`, tenantID, conversationID)
 	var item Proposal
@@ -441,6 +495,9 @@ func (r *Repository) getProposal(ctx context.Context, tenantID, conversationID s
 		&item.PackageID, &item.PackageQuantity, &item.PackageName,
 		&item.PackagePrice, &item.Available, &item.Recommendation,
 		&item.ResponseDraft, &evidence, &item.QuoteID, &item.QuoteNumber,
+		&item.QuoteStatus, &item.PortalStatus, &item.PortalViewCount,
+		&item.PortalViewedAt, &item.PortalDecisionAt,
+		&item.ReservationID, &item.ReservationNumber,
 		&item.ApprovedBy, &item.ApprovedAt, &item.CreatedAt, &item.UpdatedAt,
 	); errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil

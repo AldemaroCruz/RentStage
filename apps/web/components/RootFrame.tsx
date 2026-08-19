@@ -5,6 +5,7 @@ import { ReactNode, Suspense, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import type { Permission } from "@/lib/types";
 
 const publicRoutes = new Set(["/login", "/signup"]);
@@ -90,10 +91,10 @@ function Frame({ children }: { children: ReactNode }) {
   if (loading) {
     return <div className="auth-loading"><span className="brand-mark"><span className="brand-wave" /><span className="brand-wave brand-wave-two" /><span className="brand-wave brand-wave-three" /></span><p>Inicializando RentStage…</p></div>;
   }
-  if (isPublic) return <>{children}</>;
+  if (isPublic) return <><ThemeToggle className="public-theme-toggle" />{children}</>;
   if (!me) return <div className="auth-loading"><p>Redirigiendo al inicio de sesión…</p></div>;
   if (!me.active_workspace && pathname !== "/onboarding") return <div className="auth-loading"><p>Preparando onboarding…</p></div>;
-  if (isStandalone) return <>{children}</>;
+  if (isStandalone) return <><ThemeToggle className="public-theme-toggle" />{children}</>;
   if (permission && !can(permission)) return <AccessDenied />;
   return <AppShell>{children}</AppShell>;
 }

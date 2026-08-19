@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { api, ApiError } from "@/lib/api";
-import { formatCurrency, formatDateTime, formatQuoteNumber } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatQuoteNumber, formatReservationNumber } from "@/lib/format";
 import type {
   AssistantConversationDetail,
   AssistantConversationSummary,
@@ -30,6 +30,20 @@ function messageLabel(message: AssistantMessage): string {
   if (message.status === "APPROVED") return "EQUIPO · APROBADO Y PENDIENTE";
   if (message.status === "SENT") return "EQUIPO · ENTREGADO EN EL SIMULADOR";
   return "EQUIPO";
+}
+
+function portalSessionKey(conversationID: string): string {
+  return `rentstage-assistant-portal:${conversationID}`;
+}
+
+function portalStatusLabel(value: string | undefined): string {
+  return {
+    ACTIVE: "Esperando respuesta",
+    ACCEPTED: "Aceptada por el cliente",
+    REJECTED: "Rechazada por el cliente",
+    REVOKED: "Enlace revocado",
+    EXPIRED: "Enlace vencido",
+  }[value || ""] || "No compartida";
 }
 
 const initialStart = new Date();
@@ -60,6 +74,7 @@ const emptyCustomerDraft = {
 export default function AssistantPage() {
   const { can } = useAuth();
   const canManage = can("assistant.manage");
+  const canManageQuote = can("quote.manage");
   const canManageCustomers = can("customer.manage");
   const [items, setItems] = useState<AssistantConversationSummary[]>([]);
   const [detail, setDetail] = useState<AssistantConversationDetail | null>(null);
@@ -77,6 +92,9 @@ export default function AssistantPage() {
   const [notice, setNotice] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
   const [simulation, setSimulation] = useState(initialSimulation);
+  const [portalURL, setPortalURL] = useState("");
+  const [portalCopied, setPortalCopied] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const pendingMessage = useMemo(() => {
     if (!detail) return undefined;
@@ -129,6 +147,30 @@ export default function AssistantPage() {
     });
     setCustomerCreatorOpen(false);
   }, [detail?.id, detail?.updated_at, pendingMessage?.id, customers]);
+
+  useEffect(() => {
+    if (!detail) {
+      setPortalURL("");
+      return;
+    }
+    setPortalURL(window.sessionStorage.getItem(portalSessionKey(detail.id)) || "");
+    setPortalCopied(false);
+  }, [detail?.id]);
+
+  useEffect(() => {
+    chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [detail?.messages.length]);
+
+  useEffect(() => {
+    if (!detail?.id || detail.proposal?.portal_status !== "ACTIVE") return;
+    const conversationID = detail.id;
+    const timer = window.setInterval(() => {
+      api<AssistantConversationDetail>(`/api/v1/assistant/conversations/${conversationID}`)
+        .then((updated) => setDetail((current) => current?.id === conversationID ? updated : current))
+        .catch(() => undefined);
+    }, 12_000);
+    return () => window.clearInterval(timer);
+  }, [detail?.id, detail?.proposal?.portal_status]);
 
   async function selectConversation(id: string) {
     setWorking(true);
@@ -290,6 +332,60 @@ export default function AssistantPage() {
     }
   }
 
+  async function shareQuoteDemo() {
+    if (!detail?.proposal?.quote_id) return;
+    const rotating = detail.proposal.quote_status === "SENT";
+    if (rotating && !window.confirm("Se generará un enlace nuevo y el anterior dejará de funcionar. ¿Continuar?")) return;
+    setWorking(true);
+    setError("");
+    setNotice("");
+    try {
+      const shared = await api<AssistantConversationDetail>(`/api/v1/assistant/conversations/${detail.id}/quote/share-demo`, {
+        method: "POST",
+        body: JSON.stringify({ body: "" }),
+      });
+      const delivery = shared.portal_delivery;
+      if (!delivery?.public_url) throw new Error("El portal no devolvió su enlace de una sola lectura.");
+      window.sessionStorage.setItem(portalSessionKey(shared.id), delivery.public_url);
+      setPortalURL(delivery.public_url);
+      setPortalCopied(false);
+      setDetail(shared);
+      setNotice("Cotización enviada al simulador con un enlace seguro disponible solamente en esta sesión del navegador.");
+      await loadList(shared.id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No fue posible compartir la cotización.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function copyPortalURL() {
+    if (!portalURL) return;
+    try {
+      await navigator.clipboard.writeText(portalURL);
+      setPortalCopied(true);
+    } catch {
+      setError("No fue posible copiar el enlace. Ábrelo y cópialo manualmente desde el navegador.");
+    }
+  }
+
+  async function refreshConversation() {
+    if (!detail) return;
+    await selectConversation(detail.id);
+    setNotice("Estado del portal actualizado.");
+  }
+
+  function resetDemo() {
+    setSimulation({ ...initialSimulation });
+    setDetail(null);
+    setPortalURL("");
+    setIncomingOpen(false);
+    setCustomerCreatorOpen(false);
+    setComposerOpen(true);
+    setError("");
+    setNotice("Demostración preparada desde cero. Completa o conserva los datos y simula una nueva consulta.");
+  }
+
   const metrics = useMemo(() => ({
     review: items.filter((item) => item.status === "HUMAN_REVIEW").length,
     drafted: items.filter((item) => Boolean(item.quote_id)).length,
@@ -300,13 +396,14 @@ export default function AssistantPage() {
     <div className="page-stack assistant-page">
       <section className="assistant-hero">
         <div>
-          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.15.1</p>
+          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.15.3</p>
           <h2>Convierte consultas en cotizaciones, con una persona al mando.</h2>
           <p>Conversa de punta a punta en el canal simulado, crea clientes y valida el proceso comercial antes de conectar Meta.</p>
         </div>
         <div className="assistant-hero-actions">
           <span className="assistant-provider-pill"><i /> CANAL DEMO</span>
           {canManage && <button className="button button-primary" onClick={() => setComposerOpen((value) => !value)}>{composerOpen ? "Cerrar simulador" : "Simular consulta"}</button>}
+          {canManage && <button className="button button-secondary assistant-reset-button" onClick={resetDemo}>Reiniciar demo</button>}
         </div>
       </section>
 
@@ -339,7 +436,7 @@ export default function AssistantPage() {
       <section className="assistant-metrics">
         <article><span>Conversaciones</span><strong>{items.length}</strong><small>{metrics.demo} en canal demo</small></article>
         <article><span>Revisión humana</span><strong>{metrics.review}</strong><small>respuestas esperando aprobación</small></article>
-        <article><span>Cotizaciones creadas</span><strong>{metrics.drafted}</strong><small>todas permanecen en DRAFT</small></article>
+        <article><span>Cotizaciones creadas</span><strong>{metrics.drafted}</strong><small>borrador, portal y decisión trazables</small></article>
       </section>
 
       <section className="assistant-workspace panel">
@@ -361,12 +458,16 @@ export default function AssistantPage() {
               <div><strong>{detail.contact_name}</strong><span>{detail.contact_phone} · {detail.customer_name || "contacto sin vincular"}</span></div>
               <em className={`assistant-status ${detail.status.toLowerCase()}`}>{statusLabel(detail.status)}</em>
             </header>
-            <div className="assistant-chat-scroll">
+            <div className="assistant-chat-scroll" ref={chatScrollRef}>
               <div className="assistant-chat-day">HOY · DEMOSTRACIÓN</div>
               {detail.messages.map((message) => (
                 <article key={message.id} className={`assistant-bubble ${message.direction === "OUTBOUND" ? "outbound" : "inbound"} ${message.status === "DRAFT" ? "draft" : ""}`}>
                   <small>{messageLabel(message)}</small>
                   <p>{message.body}</p>
+                  {message.metadata.message_kind === "QUOTE_PORTAL" && <div className="assistant-message-portal">
+                    <strong>{portalStatusLabel(detail.proposal?.portal_status)}</strong>
+                    {portalURL ? <a href={portalURL} target="_blank" rel="noreferrer">Abrir portal como cliente →</a> : <span>El enlace secreto solo se conserva durante esta sesión.</span>}
+                  </div>}
                   <time>{formatDateTime(message.created_at)}</time>
                 </article>
               ))}
@@ -426,6 +527,25 @@ export default function AssistantPage() {
               <div className="assistant-approval-note"><strong>Al aprobar:</strong><span>se registra el usuario y se crea un borrador de cotización. Después podrás entregar la respuesta en el simulador.</span></div>
               {canManage ? <button className="button button-primary assistant-approve-button" onClick={() => void approve()} disabled={working || !customerID || !detail.proposal.available}>{working ? "Procesando…" : "Aprobar y crear DRAFT"}</button> : <p className="assistant-readonly">Tu rol permite revisar, pero no aprobar propuestas.</p>}
             </>}
+
+            {detail.proposal.quote_id && <section className="assistant-portal-panel">
+              <div className="assistant-portal-heading">
+                <div><span>PORTAL DEL CLIENTE</span><strong>{portalStatusLabel(detail.proposal.portal_status)}</strong></div>
+                {detail.proposal.portal_status && <em className={`status-${detail.proposal.portal_status.toLowerCase()}`}>{detail.proposal.portal_status}</em>}
+              </div>
+              {detail.proposal.portal_status ? <dl>
+                <div><dt>Vistas</dt><dd>{detail.proposal.portal_view_count}</dd></div>
+                <div><dt>Decisión</dt><dd>{detail.proposal.portal_decision_at ? formatDateTime(detail.proposal.portal_decision_at) : "Pendiente"}</dd></div>
+                {detail.proposal.reservation_number && <div><dt>Reserva</dt><dd>{formatReservationNumber(detail.proposal.reservation_number)}</dd></div>}
+              </dl> : <p>Envía la cotización para generar un enlace bearer de una sola lectura. RentStage solo conservará su hash.</p>}
+              {portalURL && <div className="assistant-portal-link-actions">
+                <a className="button button-primary" href={portalURL} target="_blank" rel="noreferrer">Abrir como cliente</a>
+                <button className="button button-secondary" onClick={() => void copyPortalURL()}>{portalCopied ? "Copiado ✓" : "Copiar enlace"}</button>
+              </div>}
+              {canManage && canManageQuote && ["DRAFT", "SENT"].includes(detail.proposal.quote_status || "") && <button className="button button-secondary assistant-portal-share" onClick={() => void shareQuoteDemo()} disabled={working}>{detail.proposal.portal_status === "ACTIVE" ? "Rotar enlace seguro" : detail.proposal.quote_status === "SENT" ? "Generar nuevo enlace seguro" : "Enviar cotización y generar portal"}</button>}
+              {detail.proposal.portal_status && <button className="assistant-text-button" onClick={() => void refreshConversation()}>↻ Actualizar vistas y decisión</button>}
+              <small>Aceptar en el portal es una decisión explícita del cliente. El asistente nunca reserva automáticamente.</small>
+            </section>}
           </>}
         </aside>
       </section>

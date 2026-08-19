@@ -1,8 +1,18 @@
-# RentStage Starter v0.15.2
+# RentStage Starter v0.15.3
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## New in v0.15.3
+
+- Completes the commercial demo from chat to customer decision: an authorized operator can issue or rotate the existing secure Quote Portal link from the assistant conversation.
+- Keeps the link credential out of persistent data. The raw token exists only in the no-store issuance response and the current browser tab's `sessionStorage`; chat and audit records contain sanitized evidence only.
+- Shows portal views, acceptance/rejection, and the resulting reservation back in the conversation. Only an explicit customer acceptance in the portal can create a reservation.
+- Adds a persistent, accessible light/dark mode button throughout the admin and public experiences, plus a presenter-friendly **Reiniciar demo** action.
+- Extends the existing assistant smoke test across secure sharing and explicit rejection without adding Meta credentials, external delivery, a database migration, or cloud infrastructure.
+
+See [`docs/WHATSAPP-CUSTOMER-PORTAL-0.15.3.md`](docs/WHATSAPP-CUSTOMER-PORTAL-0.15.3.md), [`docs/UPGRADE-0.15.3.md`](docs/UPGRADE-0.15.3.md), and [`docs/VALIDATION-0.15.3.md`](docs/VALIDATION-0.15.3.md).
 
 ## Quality update in v0.15.2
 
@@ -561,6 +571,9 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Documentation
 
+- `docs/WHATSAPP-CUSTOMER-PORTAL-0.15.3.md`
+- `docs/UPGRADE-0.15.3.md`
+- `docs/VALIDATION-0.15.3.md`
 - `docs/UPGRADE-0.14.0.md`
 - `docs/VALIDATION-0.14.0.md`
 - `docs/UPGRADE-0.13.6.md`
@@ -588,4 +601,4 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Next increment
 
-Use the v0.15.1 guided presentation with prospective users and CONAMYPE to validate WhatsApp-style intake, customer creation, multi-turn human-approved conversation, package recommendation, and quote conversion. The next channel increment is a controlled Meta Business pilot with webhook verification, templates, opt-in evidence, a 24-hour service-window policy, delivery status, and human escalation. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.
+Use the v0.15.3 guided presentation with prospective users and CONAMYPE to validate WhatsApp-style intake, customer creation, multi-turn human-approved conversation, package recommendation, secure quote review, and an explicit customer decision. The next channel increment is a controlled Meta Business pilot with webhook verification, templates, opt-in evidence, a 24-hour service-window policy, delivery status, and human escalation. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.

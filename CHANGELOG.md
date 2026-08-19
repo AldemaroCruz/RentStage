@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.15.3 — Customer quote decision and appearance controls
+
+### Added
+
+- Connects the human-approved assistant demo to the existing secure Quote Portal so an operator can issue or rotate a customer link directly from the conversation.
+- Shows portal views, decision status, and any resulting reservation in the assistant while preserving the customer's explicit accept/reject action as the only online decision point.
+- Adds a persistent light/dark appearance button to authenticated, public, login, onboarding, and Quote Portal screens without a flash of the wrong theme during hydration.
+- Adds a presenter reset action that starts a fresh demo inquiry without deleting the immutable history of previous conversations.
+- Extends the assistant smoke test through secure link issuance, token-fragment transport, sanitized transcript evidence, anonymous portal review, explicit rejection, and the absence of an automatic reservation.
+
+### Security and compatibility
+
+- The raw 256-bit bearer token is returned only in the no-store issuance response, retained only in browser `sessionStorage`, transported from `/q#token` through the existing request header, and never written to chat messages, audit metadata, or PostgreSQL.
+- Sharing requires both `assistant.manage` and `quote.manage`; all reads continue to derive the tenant from the authenticated server context.
+- The demo channel still contacts no real telephone, and no Meta credential, webhook, template, cloud resource, database migration, environment variable, or IAM grant is introduced.
+- Existing quotes, reservations, portals, conversations, sessions, staging infrastructure, and local data remain compatible.
+
 ## 0.15.2 — Frontend coverage gate
 
 ### Added
