@@ -32,3 +32,51 @@ test("printing a dark session restores light document tokens", () => {
     /@media print\s*\{\s*:root\[data-theme="dark"\]\s*\{[^}]*--surface:\s*#fff;[^}]*color-scheme:\s*light;/s,
   );
 });
+
+test("the final administrative pass owns remaining fixed light surfaces", () => {
+  const marker = "RentStage v0.15.5 — final administrative dark-surface pass";
+  const finalPass = stylesheet.slice(stylesheet.indexOf(marker));
+
+  assert.ok(finalPass.length > marker.length, "missing final administrative dark-theme contract");
+
+  for (const selector of [
+    ".switch-row.prominent",
+    ".public-admin-package-list article",
+    ".public-admin-resource-list article",
+    ".quote-portal-security-card",
+    ".audit-event-card",
+  ]) {
+    assert.ok(finalPass.includes(selector), `missing final dark-surface selector: ${selector}`);
+  }
+
+  assert.match(finalPass, /background:\s*var\(--surface\);/);
+});
+
+test("published catalog entries keep a subtle themed highlight", () => {
+  assert.match(
+    stylesheet,
+    /:root\[data-theme="dark"\] :is\(\s*\.public-admin-package-list article\.published,\s*\.public-admin-resource-list article\.published\s*\)\s*\{[^}]*background:\s*linear-gradient\(90deg, var\(--surface-tint\), var\(--surface\) 42%\);/s,
+  );
+});
+
+test("DTE provider modes use semantic dark gradients", () => {
+  assert.match(
+    stylesheet,
+    /:root\[data-theme="dark"\] \.dte-provider-banner\.mock\s*\{[^}]*background:\s*linear-gradient\(135deg, var\(--surface-tint\), var\(--surface\)\);/s,
+  );
+  assert.match(
+    stylesheet,
+    /:root\[data-theme="dark"\] \.dte-provider-banner\.mh_http\s*\{[^}]*background:\s*linear-gradient\(135deg, var\(--blue-light\), var\(--surface\)\);/s,
+  );
+});
+
+test("audit markers and the sticky billing action bar follow theme tokens", () => {
+  assert.match(
+    stylesheet,
+    /:root\[data-theme="dark"\] \.audit-marker\s*\{[^}]*border-color:\s*var\(--surface\);/s,
+  );
+  assert.match(
+    stylesheet,
+    /:root\[data-theme="dark"\] \.billing-settings-actions\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--surface\) 94%, transparent\);/s,
+  );
+});

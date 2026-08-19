@@ -1,8 +1,17 @@
-# RentStage Starter v0.15.4
+# RentStage Starter v0.15.5
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## Quality update in v0.15.5
+
+- Completes the dark-theme pass for DTE documents and settings, public-catalog editors, Quote Portal settings, billing actions, and audit history.
+- Replaces the remaining fixed white cards and gradients with the shared surface, border, text, and semantic status tokens.
+- Keeps published catalog entries, DTE provider modes, audit events, and sticky actions visually distinct without harsh contrast.
+- Adds focused regression tests for every remaining administrative surface while changing no business behavior, data, infrastructure, secret, or permission.
+
+See [`docs/UPGRADE-0.15.5.md`](docs/UPGRADE-0.15.5.md) and [`docs/VALIDATION-0.15.5.md`](docs/VALIDATION-0.15.5.md).
 
 ## Quality update in v0.15.4
 
@@ -580,6 +589,8 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Documentation
 
+- `docs/UPGRADE-0.15.5.md`
+- `docs/VALIDATION-0.15.5.md`
 - `docs/UPGRADE-0.15.4.md`
 - `docs/VALIDATION-0.15.4.md`
 - `docs/WHATSAPP-CUSTOMER-PORTAL-0.15.3.md`
@@ -612,4 +623,4 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Next increment
 
-Use the v0.15.4 guided presentation with prospective users and CONAMYPE to validate WhatsApp-style intake, customer creation, multi-turn human-approved conversation, package recommendation, secure quote review, an explicit customer decision, and a consistent light/dark interface. The next channel increment is a controlled Meta Business pilot with webhook verification, templates, opt-in evidence, a 24-hour service-window policy, delivery status, and human escalation. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.
+Use the v0.15.5 guided presentation with prospective users and CONAMYPE to validate WhatsApp-style intake, customer creation, multi-turn human-approved conversation, package recommendation, secure quote review, an explicit customer decision, and a consistent light/dark interface. The next product increment is an operational metrics layer for funnel conversion, response time, quote value, reservation outcomes, collections, and demo evidence. The following channel increment remains a controlled Meta Business pilot with webhook verification, templates, opt-in evidence, a 24-hour service-window policy, delivery status, and human escalation. DTE remains MOCK/TEST until a real authorized taxpayer provides the current official onboarding contract.

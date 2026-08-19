@@ -13245,3 +13245,90 @@ p {
     color-scheme: light;
   }
 }
+
+/* RentStage v0.15.5 — final administrative dark-surface pass. */
+:root[data-theme="dark"] :is(
+  .switch-row.prominent,
+  .public-admin-package-list article,
+  .public-admin-resource-list article,
+  .quote-portal-security-card,
+  .audit-event-card
+) {
+  color: var(--ink);
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+:root[data-theme="dark"] :is(
+  .public-admin-package-list article.published,
+  .public-admin-resource-list article.published
+) {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
+  background: linear-gradient(90deg, var(--surface-tint), var(--surface) 42%);
+}
+
+:root[data-theme="dark"] :is(
+  .public-admin-publication-copy small,
+  .public-admin-publication-copy p,
+  .public-admin-publication-copy > div,
+  .public-admin-resource-list header p,
+  .compact-number span
+) {
+  color: var(--ink-soft);
+}
+
+:root[data-theme="dark"] .public-admin-resource-list article > header {
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] :is(
+  .compact-number input,
+  .public-resource-filters input,
+  .public-resource-filters select
+) {
+  color: var(--ink);
+  border-color: var(--line-strong);
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .quote-portal-security-card {
+  background: linear-gradient(135deg, var(--surface-soft), var(--surface-tint));
+}
+
+:root[data-theme="dark"] .quote-portal-security-card > span {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
+  background: var(--surface);
+}
+
+:root[data-theme="dark"] .dte-provider-banner.mock {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
+  background: linear-gradient(135deg, var(--surface-tint), var(--surface));
+}
+
+:root[data-theme="dark"] .dte-provider-banner.mh_http {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--blue) 40%, var(--line));
+  background: linear-gradient(135deg, var(--blue-light), var(--surface));
+}
+
+:root[data-theme="dark"] .dte-provider-banner::after {
+  background: color-mix(in srgb, var(--primary) 13%, transparent);
+}
+
+:root[data-theme="dark"] .audit-marker {
+  border-color: var(--surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 52%, var(--line));
+}
+
+:root[data-theme="dark"] .audit-event-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .billing-settings-actions {
+  color: var(--ink);
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}

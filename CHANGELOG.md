@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.15.5 — Administrative dark-theme completion
+
+### Changed
+
+- Completes dark-mode ownership for DTE status banners, public-catalog publication editors, Quote Portal controls, billing actions, and audit timeline events.
+- Replaces the last fixed white gradients and cards with shared surface, border, and semantic state tokens while preserving the existing light theme.
+- Restores readable secondary copy inside published catalog rows and keeps DTE MOCK and MH_HTTP modes visually distinct without high-contrast white panels.
+- Adds subtle themed hover and selected states to the remaining administrative surfaces without changing their layout or behavior.
+
+### Quality and compatibility
+
+- Expands CSS regression coverage for the six remaining administrative screens and their shared control families.
+- Keeps appearance persistence, assistant flows, quote decisions, billing, DTE behavior, audit evidence, API contracts, database schema, infrastructure, and CI/CD unchanged.
+- Requires no migration, Terraform apply, secret, IAM permission, environment variable, data reset, or manual service operation.
+
 ## 0.15.4 — Dark-theme surface and control polish
 
 ### Changed

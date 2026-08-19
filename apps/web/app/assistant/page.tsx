@@ -396,7 +396,7 @@ export default function AssistantPage() {
     <div className="page-stack assistant-page">
       <section className="assistant-hero">
         <div>
-          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.15.4</p>
+          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.15.5</p>
           <h2>Convierte consultas en cotizaciones, con una persona al mando.</h2>
           <p>Conversa de punta a punta en el canal simulado, crea clientes y valida el proceso comercial antes de conectar Meta.</p>
         </div>
