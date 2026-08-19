@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.15.2 — Frontend coverage gate
+
+### Added
+
+- Covers every exported currency, date, numbering, status, source, warehouse, invoice, payment, and deposit formatter with meaningful known-value, fallback, empty, and invalid-input cases.
+- Covers malformed Cloud Run identity tokens, invalid audience URLs, empty metadata responses, and the opaque-token fallback cache without making external requests.
+- Enforces minimum frontend coverage of 95% lines, 90% branches, and 95% functions through the existing `npm run test:coverage` and `test:ci` path.
+
+### Quality and compatibility
+
+- Raises measured frontend coverage from 65.27% lines / 83.75% branches / 50.00% functions to at least 99% lines / 96% branches / 100% functions on the current suite.
+- Adds no runtime dependency and changes no application behavior, API contract, database schema, infrastructure, staging gate, IAM permission, secret, or tenant data.
+- Preserves the single automatic RentStage CI/CD workflow and its parallel jobs.
+
 ## 0.15.1 — Interactive WhatsApp demo conversation
 
 ### Added

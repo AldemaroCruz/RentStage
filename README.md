@@ -1,8 +1,18 @@
-# RentStage Starter v0.15.1
+# RentStage Starter v0.15.2
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## Quality update in v0.15.2
+
+- Expands frontend unit coverage from 65.27% to 99%+ of executable lines and from 50% to 100% of functions.
+- Covers every exported formatter used by inventory, quotes, reservations, warehouse operations, billing, payments, deposits, dates, and currencies.
+- Exercises missing Cloud Run identity-token failure and fallback-cache paths without contacting Google metadata services.
+- Enforces minimum frontend coverage in the existing `test:ci` command: 95% lines, 90% branches, and 95% functions.
+- Changes no application behavior, database schema, infrastructure, staging gate, secret, permission, or external integration.
+
+See [`docs/UPGRADE-0.15.2.md`](docs/UPGRADE-0.15.2.md) and [`docs/VALIDATION-0.15.2.md`](docs/VALIDATION-0.15.2.md).
 
 ## New in v0.15.1
 

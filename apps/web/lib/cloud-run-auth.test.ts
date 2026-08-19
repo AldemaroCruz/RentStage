@@ -18,6 +18,8 @@ function tokenWithExpiry(expSeconds: number): string {
 test("identityTokenExpiry reads the JWT exp claim", () => {
   assert.equal(identityTokenExpiry(tokenWithExpiry(1_900_000_000)), 1_900_000_000_000);
   assert.equal(identityTokenExpiry("not-a-jwt"), null);
+  assert.equal(identityTokenExpiry(`${base64url({})}.${base64url({ exp: "later" })}.signature`), null);
+  assert.equal(identityTokenExpiry(`${base64url({})}.not-json.signature`), null);
 });
 
 test("getCloudRunIdentityToken requests the metadata server with the correct audience", async () => {
@@ -89,6 +91,7 @@ test("getCloudRunIdentityToken rejects metadata failures and empty audiences", a
     /Unable to obtain a Cloud Run identity token \(503\): metadata unavailable/,
   );
   await assert.rejects(() => getCloudRunIdentityToken("   "), /API_AUDIENCE is required/);
+  await assert.rejects(() => getCloudRunIdentityToken("not-a-url"), /absolute HTTPS/);
   await assert.rejects(
     () => getCloudRunIdentityToken("http://rentstage-api.example.run.app"),
     /HTTPS origin/,
@@ -97,4 +100,33 @@ test("getCloudRunIdentityToken rejects metadata failures and empty audiences", a
     () => getCloudRunIdentityToken("https://rentstage-api.example.run.app/unexpected"),
     /without credentials, path, query, or fragment/,
   );
+});
+
+test("empty metadata responses are rejected and opaque tokens use the fallback cache lifetime", async () => {
+  clearCloudRunIdentityTokenCache();
+  await assert.rejects(
+    () =>
+      getCloudRunIdentityToken("https://empty.example.run.app", {
+        fetchImpl: async () => new Response("   ", { status: 200 }),
+        now: () => 1_800_000_000_000,
+      }),
+    /empty identity token/,
+  );
+
+  let calls = 0;
+  const fetchImpl: typeof fetch = async () => {
+    calls += 1;
+    return new Response("opaque-token", { status: 200 });
+  };
+  const audience = "https://opaque.example.run.app";
+
+  assert.equal(
+    await getCloudRunIdentityToken(audience, { fetchImpl, now: () => 1_800_000_000_000 }),
+    "opaque-token",
+  );
+  assert.equal(
+    await getCloudRunIdentityToken(audience, { fetchImpl, now: () => 1_800_000_001_000 }),
+    "opaque-token",
+  );
+  assert.equal(calls, 1);
 });

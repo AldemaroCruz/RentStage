@@ -13,4 +13,5 @@ test("safeInternalPath rejects external and protocol-relative redirects", () => 
   assert.equal(safeInternalPath("//evil.example/path"), null);
   assert.equal(safeInternalPath("javascript:alert(1)"), null);
   assert.equal(safeInternalPath(undefined), null);
+  assert.equal(safeInternalPath("/\\evil.example/path"), null);
 });
