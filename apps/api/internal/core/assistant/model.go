@@ -18,6 +18,7 @@ var (
 	ErrProviderDisabled      = errors.New("WhatsApp provider is disabled")
 	ErrProviderDelivery      = errors.New("WhatsApp provider delivery failed")
 	ErrServiceWindowClosed   = errors.New("WhatsApp customer service window is closed")
+	ErrConsentRevoked        = errors.New("WhatsApp customer consent is revoked")
 )
 
 type ConversationSummary struct {

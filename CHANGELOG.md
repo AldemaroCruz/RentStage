@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.18.1 — Meta application readiness and consent safety
+
+### Added
+
+- Adds public privacy, terms, data-deletion, and support routes with an explicit placeholder warning until `NEXT_PUBLIC_SUPPORT_EMAIL` is configured.
+- Adds deterministic Spanish/English opt-in and opt-out classification, an authenticated secret-free readiness endpoint, and a tenant-scoped WhatsApp template catalog foundation.
+- Extends message delivery states with `DELIVERED` and `READ`, preserving monotonic provider updates.
+
+### Safety boundary
+
+- Opted-out contacts are closed without an automated draft, and subsequent human sends are rejected until an explicit opt-in is received.
+- `META_OUTBOUND_ENABLED=true` is accepted only by the loopback local harness. Cloud delivery is rejected in v0.18.1 even when credentials are present.
+- No real access token, phone number, webhook subscription, production infrastructure apply, or production application deployment is introduced.
+
 ## 0.18.0 — Local Meta WhatsApp contract harness
 
 ### Added

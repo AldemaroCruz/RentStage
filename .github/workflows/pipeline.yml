@@ -352,6 +352,7 @@ jobs:
             --build-arg "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ vars.GCP_PROJECT_ID }}.firebaseapp.com" \
             --build-arg "NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_PORT=9099" \
             --build-arg "NEXT_PUBLIC_USE_AUTH_EMULATOR=false" \
+            --build-arg "NEXT_PUBLIC_SUPPORT_EMAIL=${{ vars.RENTSTAGE_SUPPORT_EMAIL }}" \
             --build-arg "RENTSTAGE_VERSION=${{ steps.staging-config.outputs.version }}" \
             --build-arg "VCS_REF=${{ github.sha }}" \
             --build-arg "BUILD_DATE=github-run-${{ github.run_id }}" \

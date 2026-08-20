@@ -1,8 +1,19 @@
-# RentStage Starter v0.18.0
+# RentStage Starter v0.18.1
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## New in v0.18.1
+
+- Adds public privacy, terms, data-deletion, and support surfaces required before a Meta application review. A real monitored support email must still be configured before publication.
+- Recognizes explicit WhatsApp opt-out and opt-in commands, closes opted-out conversations without drafting a reply, and blocks human sends after consent is revoked.
+- Records the Meta delivery lifecycle through `SENT`, `DELIVERED`, `READ`, and `FAILED`, and adds an isolated tenant-scoped template catalog foundation without enabling template delivery.
+- Adds an authenticated readiness diagnostic that reveals configuration booleans but never secret values.
+- Introduces `META_OUTBOUND_ENABLED`: the local loopback harness is allowed, while cloud delivery is rejected by configuration in this release.
+- Keeps production infrastructure/application gates and all real Meta delivery disabled while the Meta business review remains unresolved.
+
+See [`docs/META-APPLICATION-READINESS-0.18.1.md`](docs/META-APPLICATION-READINESS-0.18.1.md), [`docs/UPGRADE-0.18.1.md`](docs/UPGRADE-0.18.1.md), and [`docs/VALIDATION-0.18.1.md`](docs/VALIDATION-0.18.1.md).
 
 ## New in v0.18.0
 

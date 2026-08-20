@@ -306,11 +306,24 @@ export type AssistantMessage = {
   sender_type: "CUSTOMER" | "ASSISTANT" | "USER" | "SYSTEM";
   provider: "DEMO" | "WHATSAPP";
   body: string;
-  status: "RECEIVED" | "DRAFT" | "APPROVED" | "SENT" | "FAILED";
+  status: "RECEIVED" | "DRAFT" | "APPROVED" | "SENT" | "DELIVERED" | "READ" | "FAILED";
   metadata: Record<string, unknown>;
   approved_by?: string;
   approved_at?: string;
   created_at: string;
+};
+
+export type MetaReadiness = {
+  mode: "disabled" | "local_mock" | "cloud";
+  graph_api_version: string;
+  sender_identifiers_configured: boolean;
+  webhook_verification_configured: boolean;
+  signature_validation_configured: boolean;
+  access_token_configured: boolean;
+  outbound_enabled: boolean;
+  local_delivery_available: boolean;
+  cloud_delivery_allowed: false;
+  missing: string[];
 };
 
 export type AssistantProposal = {

@@ -357,6 +357,9 @@ func (s *Service) Send(
 	if detail.Channel == "DEMO" {
 		return s.SendDemo(ctx, tenantID, conversationID, input)
 	}
+	if detail.ConsentStatus == "OPTED_OUT" {
+		return ConversationDetail{}, nil, ErrConsentRevoked
+	}
 	if s.whatsAppSender == nil {
 		return ConversationDetail{}, nil, ErrProviderDisabled
 	}

@@ -10,6 +10,7 @@ import type {
   AssistantConversationSummary,
   AssistantMessage,
   Customer,
+  MetaReadiness,
 } from "@/lib/types";
 
 function localInput(date: Date): string {
@@ -29,6 +30,8 @@ function messageLabel(message: AssistantMessage, channel: AssistantConversationS
   if (message.status === "DRAFT") return "ASISTENTE · BORRADOR NO ENVIADO";
   if (message.status === "APPROVED") return "EQUIPO · APROBADO Y PENDIENTE";
   if (message.status === "SENT") return channel === "WHATSAPP" ? "EQUIPO · ACEPTADO POR META LOCAL" : "EQUIPO · ENTREGADO EN EL SIMULADOR";
+  if (message.status === "DELIVERED") return "EQUIPO · ENTREGADO";
+  if (message.status === "READ") return "EQUIPO · LEÍDO";
   if (message.status === "FAILED") return "EQUIPO · ENTREGA FALLIDA";
   return "EQUIPO";
 }
@@ -80,6 +83,7 @@ export default function AssistantPage() {
   const [items, setItems] = useState<AssistantConversationSummary[]>([]);
   const [detail, setDetail] = useState<AssistantConversationDetail | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [readiness, setReadiness] = useState<MetaReadiness | null>(null);
   const [customerID, setCustomerID] = useState("");
   const [responseBody, setResponseBody] = useState("");
   const [sendBody, setSendBody] = useState("");
@@ -125,10 +129,12 @@ export default function AssistantPage() {
     Promise.all([
       api<{ items: AssistantConversationSummary[] }>("/api/v1/assistant/conversations"),
       api<{ items: Customer[] }>("/api/v1/customers"),
+      api<MetaReadiness>("/api/v1/integrations/meta/readiness"),
     ])
-      .then(async ([conversationResponse, customerResponse]) => {
+      .then(async ([conversationResponse, customerResponse, readinessResponse]) => {
         setItems(conversationResponse.items);
         setCustomers(customerResponse.items);
+        setReadiness(readinessResponse);
         if (conversationResponse.items[0]) {
           setDetail(await api<AssistantConversationDetail>(`/api/v1/assistant/conversations/${conversationResponse.items[0].id}`));
         }
@@ -400,7 +406,7 @@ export default function AssistantPage() {
     <div className="page-stack assistant-page">
       <section className="assistant-hero">
         <div>
-          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.18.0</p>
+          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.18.1</p>
           <h2>Convierte consultas en cotizaciones, con una persona al mando.</h2>
           <p>Prueba el contrato de Meta de punta a punta en local, conserva la revisión humana y crea clientes sin contactar teléfonos reales.</p>
         </div>
@@ -416,6 +422,14 @@ export default function AssistantPage() {
         <span>Cada borrador requiere que alguien pulse enviar.</span>
         <span>DEMO y META LOCAL nunca contactan un teléfono real.</span>
         <span>Nunca reserva inventario automáticamente.</span>
+      </section>
+
+      <section className="assistant-boundary-strip">
+        <strong>Readiness: {readiness?.mode || "cargando"}</strong>
+        <span>Webhook firmado: {readiness?.signature_validation_configured ? "listo" : "pendiente"}.</span>
+        <span>Salida local: {readiness?.local_delivery_available ? "habilitada" : "bloqueada"}.</span>
+        <span>Salida cloud: bloqueada en v0.18.1.</span>
+        <Link href="/privacy">Privacidad</Link><Link href="/data-deletion">Eliminar datos</Link><Link href="/support">Soporte</Link>
       </section>
 
       {composerOpen && canManage && (

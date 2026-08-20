@@ -201,6 +201,8 @@ func (h *Handler) writeFailure(w http.ResponseWriter, r *http.Request, fields ma
 		webutil.WriteError(w, r, http.StatusBadGateway, "whatsapp_delivery_failed", "The WhatsApp provider did not accept the message.")
 	case errors.Is(err, ErrServiceWindowClosed):
 		webutil.WriteError(w, r, http.StatusConflict, "whatsapp_service_window_closed", "The 24-hour WhatsApp customer service window is closed. A reviewed template is required.")
+	case errors.Is(err, ErrConsentRevoked):
+		webutil.WriteError(w, r, http.StatusConflict, "whatsapp_consent_revoked", "The customer opted out of WhatsApp messages.")
 	case errors.Is(err, quoteportal.ErrPortalDisabled):
 		webutil.WriteError(w, r, http.StatusConflict, "quote_portal_disabled", "Enable the Quote Portal for this workspace before sharing the quote.")
 	case errors.Is(err, quoteportal.ErrQuoteNotFound):

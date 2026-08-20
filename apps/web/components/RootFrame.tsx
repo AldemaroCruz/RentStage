@@ -8,7 +8,7 @@ import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { Permission } from "@/lib/types";
 
-const publicRoutes = new Set(["/login", "/signup"]);
+const publicRoutes = new Set(["/login", "/signup", "/privacy", "/terms", "/data-deletion", "/support"]);
 const standaloneAuthenticated = ["/workspaces", "/onboarding"];
 
 function isPublicPath(pathname: string): boolean {

@@ -22,6 +22,7 @@ func setValidLocalEnvironment(t *testing.T) {
 	t.Setenv("HTTP_ADDR", "")
 	t.Setenv("PORT", "")
 	t.Setenv("META_WHATSAPP_MODE", "disabled")
+	t.Setenv("META_OUTBOUND_ENABLED", "false")
 	t.Setenv("META_GRAPH_BASE_URL", "")
 	t.Setenv("META_GRAPH_API_VERSION", "")
 	t.Setenv("META_PHONE_NUMBER_ID", "")
@@ -170,6 +171,7 @@ func TestLoadRejectsNonHTTPSWebBaseOutsideLocal(t *testing.T) {
 func TestLoadAllowsLocalMetaMockWithExplicitCredentials(t *testing.T) {
 	setValidLocalEnvironment(t)
 	t.Setenv("META_WHATSAPP_MODE", "local_mock")
+	t.Setenv("META_OUTBOUND_ENABLED", "true")
 	t.Setenv("META_GRAPH_BASE_URL", "http://127.0.0.1:8080/api/v1/integrations/meta/local-graph")
 	t.Setenv("META_GRAPH_API_VERSION", "v-test")
 	t.Setenv("META_PHONE_NUMBER_ID", "100000000000001")
@@ -184,6 +186,19 @@ func TestLoadAllowsLocalMetaMockWithExplicitCredentials(t *testing.T) {
 	}
 	if cfg.MetaWhatsAppMode != "local_mock" {
 		t.Fatalf("MetaWhatsAppMode = %q", cfg.MetaWhatsAppMode)
+	}
+	if !cfg.MetaOutboundEnabled {
+		t.Fatal("expected local outbound harness to be enabled")
+	}
+}
+
+func TestLoadRejectsCloudMetaOutboundInApplicationReadinessRelease(t *testing.T) {
+	setValidStagingEnvironment(t)
+	t.Setenv("META_WHATSAPP_MODE", "cloud")
+	t.Setenv("META_OUTBOUND_ENABLED", "true")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "real delivery remains deferred") {
+		t.Fatalf("expected cloud outbound safety error, got %v", err)
 	}
 }
 

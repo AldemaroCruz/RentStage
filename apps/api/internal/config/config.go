@@ -31,6 +31,7 @@ type Config struct {
 	LocalDefaultTenantID         string
 	PublicRequestFingerprintSalt string
 	MetaWhatsAppMode             string
+	MetaOutboundEnabled          bool
 	MetaGraphBaseURL             string
 	MetaGraphAPIVersion          string
 	MetaPhoneNumberID            string
@@ -61,6 +62,7 @@ func Load() (Config, error) {
 		LocalDefaultTenantID:         env("LOCAL_DEFAULT_TENANT_ID", "00000000-0000-0000-0000-000000000001"),
 		PublicRequestFingerprintSalt: env("PUBLIC_REQUEST_FINGERPRINT_SALT", "rentstage-local-public-catalog"),
 		MetaWhatsAppMode:             strings.ToLower(env("META_WHATSAPP_MODE", "disabled")),
+		MetaOutboundEnabled:          envBool("META_OUTBOUND_ENABLED", false),
 		MetaGraphBaseURL:             strings.TrimRight(env("META_GRAPH_BASE_URL", "https://graph.facebook.com"), "/"),
 		MetaGraphAPIVersion:          env("META_GRAPH_API_VERSION", "v-test"),
 		MetaPhoneNumberID:            strings.TrimSpace(os.Getenv("META_PHONE_NUMBER_ID")),
@@ -159,6 +161,9 @@ func Load() (Config, error) {
 func validateMetaWhatsApp(cfg Config) error {
 	switch cfg.MetaWhatsAppMode {
 	case "disabled":
+		if cfg.MetaOutboundEnabled {
+			return fmt.Errorf("META_OUTBOUND_ENABLED requires an enabled Meta WhatsApp mode")
+		}
 		return nil
 	case "local_mock":
 		if cfg.AppEnv != "local" {
@@ -170,6 +175,9 @@ func validateMetaWhatsApp(cfg Config) error {
 	case "cloud":
 		if err := validateHTTPSOrigin(cfg.MetaGraphBaseURL, "META_GRAPH_BASE_URL"); err != nil {
 			return err
+		}
+		if cfg.MetaOutboundEnabled {
+			return fmt.Errorf("META_OUTBOUND_ENABLED cannot be true in cloud mode in v0.18.1; real delivery remains deferred")
 		}
 	default:
 		return fmt.Errorf("META_WHATSAPP_MODE must be disabled, local_mock, or cloud")

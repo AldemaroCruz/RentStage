@@ -74,7 +74,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	)
 	assistantRepository := assistant.NewRepository(pool)
 	var whatsAppSender assistant.WhatsAppSender
-	if cfg.MetaWhatsAppMode != "disabled" {
+	if cfg.MetaWhatsAppMode == "local_mock" && cfg.MetaOutboundEnabled {
 		whatsAppSender = metaintegration.NewClient(
 			cfg.MetaGraphBaseURL, cfg.MetaGraphAPIVersion,
 			cfg.MetaPhoneNumberID, cfg.MetaAccessToken,
@@ -182,6 +182,13 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 
 	registerTenant("GET /api/v1/dashboard", identity.PermissionOperationsRead, dashboardHandler.Get)
 	registerTenant("GET /api/v1/metrics/commercial", identity.PermissionOperationsRead, commercialMetricsHandler.Get)
+	registerTenant("GET /api/v1/integrations/meta/readiness", identity.PermissionAssistantRead, func(w http.ResponseWriter, _ *http.Request) {
+		webutil.WriteJSON(w, http.StatusOK, metaintegration.BuildReadiness(
+			cfg.MetaWhatsAppMode, cfg.MetaGraphAPIVersion,
+			cfg.MetaPhoneNumberID, cfg.MetaWABAID, cfg.MetaAccessToken,
+			cfg.MetaAppSecret, cfg.MetaWebhookVerifyToken, cfg.MetaOutboundEnabled,
+		))
+	})
 	registerTenant("GET /api/v1/assistant/conversations", identity.PermissionAssistantRead, assistantHandler.List)
 	registerTenant("POST /api/v1/assistant/conversations/simulate", identity.PermissionAssistantManage, assistantHandler.Simulate)
 	registerTenant("GET /api/v1/assistant/conversations/{conversationID}", identity.PermissionAssistantRead, assistantHandler.Get)

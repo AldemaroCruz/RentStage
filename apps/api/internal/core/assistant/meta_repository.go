@@ -71,21 +71,46 @@ func (r *Repository) applyMetaInbound(
 	}
 	contactPhone := normalizeWhatsAppPhone(message.From)
 	serviceWindow := message.OccurredAt.Add(24 * time.Hour)
+	decision := metaintegration.ClassifyConsent(message.Text)
+	requestedConsent := "UNKNOWN"
+	conversationStatus := "HUMAN_REVIEW"
+	summary := "Conversación recibida por WhatsApp"
+	if decision == metaintegration.ConsentOptedOut {
+		requestedConsent = "OPTED_OUT"
+		conversationStatus = "CLOSED"
+		summary = "El contacto solicitó no recibir más mensajes"
+	} else if decision == metaintegration.ConsentOptedIn {
+		requestedConsent = "OPTED_IN"
+		summary = "El contacto autorizó continuar la conversación"
+	}
 	var conversationID string
+	var effectiveConsent string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO assistant_conversations (
 			tenant_id, channel, external_conversation_id, contact_name,
 			contact_phone, status, consent_status, service_window_expires_at,
 			summary, last_message_at
 		) VALUES (
-			$1, 'WHATSAPP', $2, $3, $4, 'HUMAN_REVIEW', 'UNKNOWN', $5,
-			'Conversación recibida por WhatsApp', $6
+			$1, 'WHATSAPP', $2, $3, $4, $5, $6, $7, $8, $9
 		)
 		ON CONFLICT (tenant_id, channel, external_conversation_id)
 			WHERE external_conversation_id IS NOT NULL
 		DO UPDATE SET
 			contact_name = EXCLUDED.contact_name,
 			contact_phone = EXCLUDED.contact_phone,
+			consent_status = CASE
+				WHEN EXCLUDED.consent_status IN ('OPTED_IN', 'OPTED_OUT') THEN EXCLUDED.consent_status
+				ELSE assistant_conversations.consent_status
+			END,
+			status = CASE
+				WHEN EXCLUDED.consent_status = 'OPTED_OUT' THEN 'CLOSED'
+				WHEN EXCLUDED.consent_status = 'OPTED_IN' THEN 'HUMAN_REVIEW'
+				ELSE assistant_conversations.status
+			END,
+			summary = CASE
+				WHEN EXCLUDED.consent_status IN ('OPTED_IN', 'OPTED_OUT') THEN EXCLUDED.summary
+				ELSE assistant_conversations.summary
+			END,
 			service_window_expires_at = GREATEST(
 				assistant_conversations.service_window_expires_at,
 				EXCLUDED.service_window_expires_at
@@ -94,8 +119,9 @@ func (r *Repository) applyMetaInbound(
 				assistant_conversations.last_message_at,
 				EXCLUDED.last_message_at
 			)
-		RETURNING id
-	`, tenantID, message.From, contactName, contactPhone, serviceWindow, message.OccurredAt).Scan(&conversationID)
+		RETURNING id, consent_status
+	`, tenantID, message.From, contactName, contactPhone, conversationStatus, requestedConsent,
+		serviceWindow, summary, message.OccurredAt).Scan(&conversationID, &effectiveConsent)
 	if err != nil {
 		return false, false, fmt.Errorf("upsert Meta conversation: %w", err)
 	}
@@ -128,26 +154,29 @@ func (r *Repository) applyMetaInbound(
 		return false, false, fmt.Errorf("insert Meta inbound: %w", err)
 	}
 
-	draftMetadata, _ := json.Marshal(map[string]any{
-		"engine":                  "META_LOCAL_RULES",
-		"human_approval_required": true,
-		"source_message_id":       message.MessageID,
-	})
-	draft := fmt.Sprintf(
-		"¡Hola, %s! Gracias por escribirnos. Recibimos tu mensaje y un miembro del equipo preparará la información para responderte.",
-		contactName,
-	)
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO assistant_messages (
-			tenant_id, conversation_id, direction, sender_type, provider,
-			body, status, metadata
-		) VALUES ($1, $2, 'OUTBOUND', 'ASSISTANT', 'WHATSAPP', $3, 'DRAFT', $4::jsonb)
-	`, tenantID, conversationID, draft, string(draftMetadata)); err != nil {
-		return false, false, fmt.Errorf("insert Meta response draft: %w", err)
+	if effectiveConsent != "OPTED_OUT" {
+		draftMetadata, _ := json.Marshal(map[string]any{
+			"engine":                  "META_LOCAL_RULES",
+			"human_approval_required": true,
+			"source_message_id":       message.MessageID,
+		})
+		draft := fmt.Sprintf(
+			"¡Hola, %s! Gracias por escribirnos. Recibimos tu mensaje y un miembro del equipo preparará la información para responderte.",
+			contactName,
+		)
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO assistant_messages (
+				tenant_id, conversation_id, direction, sender_type, provider,
+				body, status, metadata
+			) VALUES ($1, $2, 'OUTBOUND', 'ASSISTANT', 'WHATSAPP', $3, 'DRAFT', $4::jsonb)
+		`, tenantID, conversationID, draft, string(draftMetadata)); err != nil {
+			return false, false, fmt.Errorf("insert Meta response draft: %w", err)
+		}
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE assistant_conversations
-		SET status = 'HUMAN_REVIEW', last_message_at = $3
+		SET status = CASE WHEN consent_status = 'OPTED_OUT' THEN 'CLOSED' ELSE 'HUMAN_REVIEW' END,
+			last_message_at = $3
 		WHERE tenant_id = $1 AND id = $2
 	`, tenantID, conversationID, message.OccurredAt); err != nil {
 		return false, false, fmt.Errorf("update Meta conversation: %w", err)
@@ -179,13 +208,18 @@ func (r *Repository) applyMetaStatus(
 		"delivery_updated_at": status.OccurredAt,
 		"delivery_errors":     status.Errors,
 	})
-	messageStatus := "SENT"
-	if status.Status == "failed" {
-		messageStatus = "FAILED"
+	messageStatus, known := metaintegration.NormalizeDeliveryStatus(status.Status)
+	if !known {
+		return false, nil
 	}
 	command, err := tx.Exec(ctx, `
 		UPDATE assistant_messages
-		SET status = $3, metadata = metadata || $4::jsonb
+		SET status = CASE
+			WHEN status = 'READ' THEN 'READ'
+			WHEN status = 'DELIVERED' AND $3 = 'SENT' THEN 'DELIVERED'
+			WHEN status = 'FAILED' AND $3 <> 'FAILED' THEN 'FAILED'
+			ELSE $3
+		END, metadata = metadata || $4::jsonb
 		WHERE tenant_id = $1 AND provider = 'WHATSAPP'
 		  AND external_message_id = $2 AND direction = 'OUTBOUND'
 	`, tenantID, status.MessageID, messageStatus, string(metadata))
