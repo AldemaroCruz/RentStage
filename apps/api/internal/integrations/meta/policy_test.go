@@ -4,10 +4,10 @@ import "testing"
 
 func TestClassifyConsent(t *testing.T) {
 	tests := map[string]ConsentDecision{
-		"STOP": ConsentOptedOut,
-		"No más mensajes!!!": ConsentOptedOut,
-		"DEJAR DE RECIBIR": ConsentOptedOut,
-		"Continuar": ConsentOptedIn,
+		"STOP":                  ConsentOptedOut,
+		"No más mensajes!!!":    ConsentOptedOut,
+		"DEJAR DE RECIBIR":      ConsentOptedOut,
+		"Continuar":             ConsentOptedIn,
 		"quiero una cotización": ConsentUnchanged,
 	}
 	for input, want := range tests {

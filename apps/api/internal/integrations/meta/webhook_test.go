@@ -49,6 +49,33 @@ func TestWebhookVerificationRejectsWrongToken(t *testing.T) {
 	}
 }
 
+func TestWebhookVerificationRejectsUnsafeChallenge(t *testing.T) {
+	handler := NewWebhookHandler("verify-me", "secret", &recordingProcessor{})
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/webhook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+		nil,
+	)
+	recorder := httptest.NewRecorder()
+	handler.Verify(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("unsafe challenge status = %d, want 403", recorder.Code)
+	}
+}
+
+func TestWebhookVerificationRejectsOversizedChallenge(t *testing.T) {
+	handler := NewWebhookHandler("verify-me", "secret", &recordingProcessor{})
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/webhook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge="+strings.Repeat("a", 257),
+		nil,
+	)
+	recorder := httptest.NewRecorder()
+	handler.Verify(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("oversized challenge status = %d, want 403", recorder.Code)
+	}
+}
 func TestParseWebhookCollectsMessagesAndStatuses(t *testing.T) {
 	body := []byte(`{
 		"object":"whatsapp_business_account",

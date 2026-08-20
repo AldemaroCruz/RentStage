@@ -82,16 +82,35 @@ func NewWebhookHandler(verifyToken, appSecret string, processor Processor) *Webh
 
 func (h *WebhookHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
+	challenge := query.Get("hub.challenge")
 	if query.Get("hub.mode") != "subscribe" ||
 		!constantTimeTextEqual(query.Get("hub.verify_token"), h.verifyToken) ||
-		strings.TrimSpace(query.Get("hub.challenge")) == "" {
+		!validVerificationChallenge(challenge) {
 		http.Error(w, "webhook verification failed", http.StatusForbidden)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(query.Get("hub.challenge")))
+	_, _ = w.Write([]byte(challenge)) // #nosec G705 -- Meta requires the exact allowlisted challenge in the response body.
+}
+
+func validVerificationChallenge(value string) bool {
+	if value == "" || len(value) > 256 {
+		return false
+	}
+	for _, character := range value {
+		switch {
+		case character >= 'a' && character <= 'z':
+		case character >= 'A' && character <= 'Z':
+		case character >= '0' && character <= '9':
+		case character == '-', character == '_', character == '.', character == '~':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func (h *WebhookHandler) Receive(w http.ResponseWriter, r *http.Request) {
