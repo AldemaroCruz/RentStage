@@ -28,6 +28,7 @@ const conversationSummarySelect = `
 		conversation.contact_phone,
 		conversation.status,
 		conversation.consent_status,
+		conversation.service_window_expires_at,
 		conversation.summary,
 		COALESCE(last_message.body, ''),
 		conversation.last_message_at,
@@ -517,7 +518,7 @@ func scanConversationSummary(row rowScanner) (ConversationSummary, error) {
 	if err := row.Scan(
 		&item.ID, &item.Channel, &item.CustomerID, &item.CustomerName,
 		&item.ContactName, &item.ContactPhone, &item.Status,
-		&item.ConsentStatus, &item.Summary, &item.LastMessage,
+		&item.ConsentStatus, &item.ServiceWindowExpiresAt, &item.Summary, &item.LastMessage,
 		&item.LastMessageAt, &item.QuoteID, &item.QuoteNumber,
 		&item.CreatedAt, &item.UpdatedAt,
 	); err != nil {

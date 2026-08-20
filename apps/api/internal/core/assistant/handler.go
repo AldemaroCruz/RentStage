@@ -109,6 +109,25 @@ func (h *Handler) SendDemo(w http.ResponseWriter, r *http.Request) {
 	webutil.WriteJSON(w, http.StatusOK, item)
 }
 
+func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
+	conversationID, ok := conversationPathID(w, r)
+	if !ok {
+		return
+	}
+	var input SendInput
+	if err := webutil.DecodeJSON(r, &input); err != nil {
+		webutil.WriteError(w, r, http.StatusBadRequest, "invalid_json", "The request body is not valid JSON.")
+		return
+	}
+	item, fields, err := h.service.Send(
+		r.Context(), webutil.TenantID(r.Context()), conversationID, input,
+	)
+	if h.writeFailure(w, r, fields, err) {
+		return
+	}
+	webutil.WriteJSON(w, http.StatusOK, item)
+}
+
 func (h *Handler) ReceiveDemo(w http.ResponseWriter, r *http.Request) {
 	conversationID, ok := conversationPathID(w, r)
 	if !ok {
@@ -176,6 +195,12 @@ func (h *Handler) writeFailure(w http.ResponseWriter, r *http.Request, fields ma
 		webutil.WriteError(w, r, http.StatusConflict, "assistant_quote_missing", "Create the quote draft before sharing a customer portal.")
 	case errors.Is(err, ErrPortalDeliveryMissing):
 		webutil.WriteError(w, r, http.StatusInternalServerError, "assistant_portal_delivery_missing", "The secure customer link was not returned.")
+	case errors.Is(err, ErrProviderDisabled):
+		webutil.WriteError(w, r, http.StatusConflict, "whatsapp_provider_disabled", "The WhatsApp provider is not enabled for this environment.")
+	case errors.Is(err, ErrProviderDelivery):
+		webutil.WriteError(w, r, http.StatusBadGateway, "whatsapp_delivery_failed", "The WhatsApp provider did not accept the message.")
+	case errors.Is(err, ErrServiceWindowClosed):
+		webutil.WriteError(w, r, http.StatusConflict, "whatsapp_service_window_closed", "The 24-hour WhatsApp customer service window is closed. A reviewed template is required.")
 	case errors.Is(err, quoteportal.ErrPortalDisabled):
 		webutil.WriteError(w, r, http.StatusConflict, "quote_portal_disabled", "Enable the Quote Portal for this workspace before sharing the quote.")
 	case errors.Is(err, quoteportal.ErrQuoteNotFound):

@@ -567,9 +567,28 @@ INSERT INTO invoice_events (
   ('95000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001', 'PAYMENT_APPLIED', 'seed:v0.14.0', '{"payment_id":"92000000-0000-0000-0000-000000000001","amount":150,"demo":true}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
--- v0.15.0: a presentation-ready WhatsApp-style conversation. The channel is
--- explicitly DEMO until a real Meta Business sender is connected. The
--- suggested response remains a draft and no reservation is created.
+-- v0.18.0: deterministic public identifiers connect the demo tenant only to
+-- the loopback Meta contract harness. No secret or real sender is persisted.
+INSERT INTO assistant_channel_connections (
+  id, tenant_id, provider, mode, phone_number_id, waba_id,
+  display_phone_number, enabled
+) VALUES (
+  'a0000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  'WHATSAPP',
+  'LOCAL_MOCK',
+  '100000000000001',
+  '200000000000001',
+  '+503 7000-0000',
+  TRUE
+)
+ON CONFLICT (tenant_id, provider) DO UPDATE SET
+  mode = EXCLUDED.mode,
+  phone_number_id = EXCLUDED.phone_number_id,
+  waba_id = EXCLUDED.waba_id,
+  display_phone_number = EXCLUDED.display_phone_number,
+  enabled = EXCLUDED.enabled;
+
 INSERT INTO assistant_conversations (
   id, tenant_id, channel, customer_id, contact_name, contact_phone,
   status, consent_status, summary, last_message_at

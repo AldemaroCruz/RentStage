@@ -1,8 +1,18 @@
-# RentStage Starter v0.17.1
+# RentStage Starter v0.18.0
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## New in v0.18.0
+
+- Adds a local WhatsApp Cloud API contract harness that requires no Meta account, sender, access token, public tunnel, or real telephone.
+- Accepts the official webhook verification shape, validates `X-Hub-Signature-256` over the exact request bytes before JSON parsing, normalizes inbound messages and delivery statuses, and processes duplicate webhook deliveries idempotently.
+- Reuses the tenant-scoped assistant inbox and human approval flow. A local WhatsApp message opens a 24-hour service window, creates a response draft, and sends an approved text through a loopback-only Graph-compatible endpoint.
+- Stores only public channel identifiers in PostgreSQL. Local placeholder credentials remain in Compose environment variables, and the production Meta secret containers remain empty.
+- Keeps the protected production infrastructure apply and application deployment gates disabled. The reviewed production plan is archived for a later cost and access decision.
+
+See [`docs/META-LOCAL-DEVELOPMENT-0.18.0.md`](docs/META-LOCAL-DEVELOPMENT-0.18.0.md), [`docs/DEFERRED-PRODUCTION-APPLY-0.18.0.md`](docs/DEFERRED-PRODUCTION-APPLY-0.18.0.md), [`docs/UPGRADE-0.18.0.md`](docs/UPGRADE-0.18.0.md), and [`docs/VALIDATION-0.18.0.md`](docs/VALIDATION-0.18.0.md).
 
 ## Security update in v0.17.1
 
@@ -620,6 +630,10 @@ The `MH_HTTP` adapter blocks unsafe destinations and redacts credential-like evi
 
 ## Documentation
 
+- `docs/META-LOCAL-DEVELOPMENT-0.18.0.md`
+- `docs/DEFERRED-PRODUCTION-APPLY-0.18.0.md`
+- `docs/UPGRADE-0.18.0.md`
+- `docs/VALIDATION-0.18.0.md`
 - `docs/PRODUCTION-APPLY-0.17.1.md`
 - `docs/UPGRADE-0.17.1.md`
 - `docs/VALIDATION-0.17.1.md`

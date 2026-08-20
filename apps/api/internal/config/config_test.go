@@ -21,6 +21,14 @@ func setValidLocalEnvironment(t *testing.T) {
 	t.Setenv("ALLOW_DEMO_DATA_OUTSIDE_LOCAL", "false")
 	t.Setenv("HTTP_ADDR", "")
 	t.Setenv("PORT", "")
+	t.Setenv("META_WHATSAPP_MODE", "disabled")
+	t.Setenv("META_GRAPH_BASE_URL", "")
+	t.Setenv("META_GRAPH_API_VERSION", "")
+	t.Setenv("META_PHONE_NUMBER_ID", "")
+	t.Setenv("META_WABA_ID", "")
+	t.Setenv("META_ACCESS_TOKEN", "")
+	t.Setenv("META_APP_SECRET", "")
+	t.Setenv("META_WEBHOOK_VERIFY_TOKEN", "")
 }
 
 func setValidStagingEnvironment(t *testing.T) {
@@ -156,6 +164,60 @@ func TestLoadRejectsNonHTTPSWebBaseOutsideLocal(t *testing.T) {
 	_, err := Load()
 	if err == nil || !strings.Contains(err.Error(), "WEB_BASE_URL") {
 		t.Fatalf("expected WEB_BASE_URL validation error, got %v", err)
+	}
+}
+
+func TestLoadAllowsLocalMetaMockWithExplicitCredentials(t *testing.T) {
+	setValidLocalEnvironment(t)
+	t.Setenv("META_WHATSAPP_MODE", "local_mock")
+	t.Setenv("META_GRAPH_BASE_URL", "http://127.0.0.1:8080/api/v1/integrations/meta/local-graph")
+	t.Setenv("META_GRAPH_API_VERSION", "v-test")
+	t.Setenv("META_PHONE_NUMBER_ID", "100000000000001")
+	t.Setenv("META_WABA_ID", "200000000000001")
+	t.Setenv("META_ACCESS_TOKEN", "rentstage-local-meta-access-token")
+	t.Setenv("META_APP_SECRET", "rentstage-local-meta-app-secret")
+	t.Setenv("META_WEBHOOK_VERIFY_TOKEN", "rentstage-local-meta-verify-token")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned an error: %v", err)
+	}
+	if cfg.MetaWhatsAppMode != "local_mock" {
+		t.Fatalf("MetaWhatsAppMode = %q", cfg.MetaWhatsAppMode)
+	}
+}
+
+func TestLoadRejectsLocalMetaMockOutsideLocal(t *testing.T) {
+	setValidStagingEnvironment(t)
+	t.Setenv("META_WHATSAPP_MODE", "local_mock")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "only in local") {
+		t.Fatalf("expected local Meta mock isolation error, got %v", err)
+	}
+}
+
+func TestLoadRejectsLocalMetaMockWithRemoteGraphEndpoint(t *testing.T) {
+	setValidLocalEnvironment(t)
+	t.Setenv("META_WHATSAPP_MODE", "local_mock")
+	t.Setenv("META_GRAPH_BASE_URL", "http://graph.facebook.com/api/v1/integrations/meta/local-graph")
+	t.Setenv("META_PHONE_NUMBER_ID", "100000000000001")
+	t.Setenv("META_WABA_ID", "200000000000001")
+	t.Setenv("META_ACCESS_TOKEN", "rentstage-local-meta-access-token")
+	t.Setenv("META_APP_SECRET", "rentstage-local-meta-app-secret")
+	t.Setenv("META_WEBHOOK_VERIFY_TOKEN", "rentstage-local-meta-verify-token")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "loopback") {
+		t.Fatalf("expected remote local_mock endpoint to be rejected, got %v", err)
+	}
+}
+
+func TestLoadRejectsCloudMetaWithoutCredentials(t *testing.T) {
+	setValidStagingEnvironment(t)
+	t.Setenv("META_WHATSAPP_MODE", "cloud")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "META_PHONE_NUMBER_ID") {
+		t.Fatalf("expected missing Meta credential error, got %v", err)
 	}
 }
 

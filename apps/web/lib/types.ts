@@ -290,6 +290,7 @@ export type AssistantConversationSummary = {
   contact_phone: string;
   status: AssistantConversationStatus;
   consent_status: "DEMO" | "OPTED_IN" | "UNKNOWN" | "OPTED_OUT";
+  service_window_expires_at?: string;
   summary: string;
   last_message: string;
   last_message_at: string;

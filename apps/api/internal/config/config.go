@@ -30,6 +30,14 @@ type Config struct {
 	LocalOwnerDisplayName        string
 	LocalDefaultTenantID         string
 	PublicRequestFingerprintSalt string
+	MetaWhatsAppMode             string
+	MetaGraphBaseURL             string
+	MetaGraphAPIVersion          string
+	MetaPhoneNumberID            string
+	MetaWABAID                   string
+	MetaAccessToken              string
+	MetaAppSecret                string
+	MetaWebhookVerifyToken       string
 }
 
 func Load() (Config, error) {
@@ -52,6 +60,14 @@ func Load() (Config, error) {
 		LocalOwnerDisplayName:        env("LOCAL_OWNER_DISPLAY_NAME", "Administrador Demo"),
 		LocalDefaultTenantID:         env("LOCAL_DEFAULT_TENANT_ID", "00000000-0000-0000-0000-000000000001"),
 		PublicRequestFingerprintSalt: env("PUBLIC_REQUEST_FINGERPRINT_SALT", "rentstage-local-public-catalog"),
+		MetaWhatsAppMode:             strings.ToLower(env("META_WHATSAPP_MODE", "disabled")),
+		MetaGraphBaseURL:             strings.TrimRight(env("META_GRAPH_BASE_URL", "https://graph.facebook.com"), "/"),
+		MetaGraphAPIVersion:          env("META_GRAPH_API_VERSION", "v-test"),
+		MetaPhoneNumberID:            strings.TrimSpace(os.Getenv("META_PHONE_NUMBER_ID")),
+		MetaWABAID:                   strings.TrimSpace(os.Getenv("META_WABA_ID")),
+		MetaAccessToken:              strings.TrimSpace(os.Getenv("META_ACCESS_TOKEN")),
+		MetaAppSecret:                strings.TrimSpace(os.Getenv("META_APP_SECRET")),
+		MetaWebhookVerifyToken:       strings.TrimSpace(os.Getenv("META_WEBHOOK_VERIFY_TOKEN")),
 	}
 
 	if cfg.AppEnv != "local" && cfg.AppEnv != "staging" && cfg.AppEnv != "production" {
@@ -85,6 +101,9 @@ func Load() (Config, error) {
 	}
 	if cfg.LocalAuthBootstrap && (cfg.LocalOwnerEmail == "" || len(cfg.LocalOwnerPassword) < 6) {
 		return Config{}, fmt.Errorf("local auth bootstrap requires LOCAL_OWNER_EMAIL and a password of at least 6 characters")
+	}
+	if err := validateMetaWhatsApp(cfg); err != nil {
+		return Config{}, err
 	}
 
 	nonLocal := cfg.AppEnv != "local"
@@ -135,6 +154,62 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func validateMetaWhatsApp(cfg Config) error {
+	switch cfg.MetaWhatsAppMode {
+	case "disabled":
+		return nil
+	case "local_mock":
+		if cfg.AppEnv != "local" {
+			return fmt.Errorf("META_WHATSAPP_MODE=local_mock is allowed only in local development")
+		}
+		if err := validateLocalMetaGraphURL(cfg.MetaGraphBaseURL); err != nil {
+			return err
+		}
+	case "cloud":
+		if err := validateHTTPSOrigin(cfg.MetaGraphBaseURL, "META_GRAPH_BASE_URL"); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("META_WHATSAPP_MODE must be disabled, local_mock, or cloud")
+	}
+
+	required := []struct {
+		name  string
+		value string
+	}{
+		{name: "META_PHONE_NUMBER_ID", value: cfg.MetaPhoneNumberID},
+		{name: "META_WABA_ID", value: cfg.MetaWABAID},
+		{name: "META_GRAPH_API_VERSION", value: cfg.MetaGraphAPIVersion},
+		{name: "META_ACCESS_TOKEN", value: cfg.MetaAccessToken},
+		{name: "META_APP_SECRET", value: cfg.MetaAppSecret},
+		{name: "META_WEBHOOK_VERIFY_TOKEN", value: cfg.MetaWebhookVerifyToken},
+	}
+	for _, field := range required {
+		if strings.TrimSpace(field.value) == "" {
+			return fmt.Errorf("%s is required when Meta WhatsApp is enabled", field.name)
+		}
+	}
+	if len(cfg.MetaAppSecret) < 16 || len(cfg.MetaWebhookVerifyToken) < 16 {
+		return fmt.Errorf("META_APP_SECRET and META_WEBHOOK_VERIFY_TOKEN must contain at least 16 characters")
+	}
+	return nil
+}
+
+func validateLocalMetaGraphURL(value string) error {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil || parsed.Scheme != "http" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return fmt.Errorf("META_GRAPH_BASE_URL in local_mock mode must use the local HTTP harness")
+	}
+	hostname := parsed.Hostname()
+	if hostname != "127.0.0.1" && hostname != "localhost" && hostname != "::1" {
+		return fmt.Errorf("META_GRAPH_BASE_URL in local_mock mode must use a loopback host")
+	}
+	if !strings.HasSuffix(strings.TrimRight(parsed.Path, "/"), "/api/v1/integrations/meta/local-graph") {
+		return fmt.Errorf("META_GRAPH_BASE_URL in local_mock mode must target the local Graph harness")
+	}
+	return nil
 }
 
 func validateHTTPSOrigin(value, field string) error {

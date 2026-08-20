@@ -24,6 +24,10 @@ artifacts/
 *.sql.gz
 firebase-export/
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Terraform
 **/.terraform/
 *.tfstate

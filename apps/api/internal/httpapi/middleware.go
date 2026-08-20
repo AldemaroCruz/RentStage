@@ -135,6 +135,14 @@ func csrfMiddleware(cfg config.Config) middleware {
 				next.ServeHTTP(w, r)
 				return
 			}
+			// Meta callbacks cannot carry RentStage's browser CSRF token. The
+			// webhook verifies X-Hub-Signature-256 before processing, while the
+			// local Graph harness requires its isolated bearer token.
+			if r.URL.Path == "/api/v1/integrations/meta/webhook" ||
+				strings.HasPrefix(r.URL.Path, "/api/v1/integrations/meta/local-graph/") {
+				next.ServeHTTP(w, r)
+				return
+			}
 			if !authn.ValidCSRF(r, cfg) {
 				webutil.WriteError(w, r, http.StatusForbidden, "csrf_validation_failed", "Request protection token is missing or invalid.")
 				return

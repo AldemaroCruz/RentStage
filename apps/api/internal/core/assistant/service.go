@@ -13,8 +13,13 @@ import (
 	"github.com/rentstage/rentstage/apps/api/internal/core/quote"
 	"github.com/rentstage/rentstage/apps/api/internal/core/quoteportal"
 	"github.com/rentstage/rentstage/apps/api/internal/idutil"
+	metaintegration "github.com/rentstage/rentstage/apps/api/internal/integrations/meta"
 	"github.com/rentstage/rentstage/apps/api/internal/webutil"
 )
+
+type WhatsAppSender interface {
+	SendText(context.Context, string, string) (string, error)
+}
 
 type Service struct {
 	repository         *Repository
@@ -24,6 +29,7 @@ type Service struct {
 	quoteService       *quote.Service
 	quotePortalService *quoteportal.Service
 	audit              *audit.Repository
+	whatsAppSender     WhatsAppSender
 }
 
 func NewService(
@@ -34,13 +40,21 @@ func NewService(
 	quoteService *quote.Service,
 	quotePortalService *quoteportal.Service,
 	auditRepository *audit.Repository,
+	whatsAppSender WhatsAppSender,
 ) *Service {
 	return &Service{
 		repository: repository, packageRepository: packageRepository,
 		packageService: packageService, customerRepository: customerRepository,
 		quoteService: quoteService, quotePortalService: quotePortalService,
-		audit: auditRepository,
+		audit: auditRepository, whatsAppSender: whatsAppSender,
 	}
+}
+
+func (s *Service) ProcessMetaWebhook(
+	ctx context.Context,
+	events metaintegration.WebhookEvents,
+) (metaintegration.ProcessResult, error) {
+	return s.repository.ApplyMetaWebhook(ctx, events)
 }
 
 func (s *Service) Simulate(
@@ -317,6 +331,54 @@ func (s *Service) SendDemo(
 		"real_phone_delivery": false,
 	})
 	return detail, nil, nil
+}
+
+func (s *Service) Send(
+	ctx context.Context,
+	tenantID, conversationID string,
+	input SendInput,
+) (ConversationDetail, map[string]string, error) {
+	input.MessageID = strings.TrimSpace(input.MessageID)
+	input.Body = strings.TrimSpace(input.Body)
+	fields := map[string]string{}
+	if input.MessageID != "" && !idutil.IsUUID(input.MessageID) {
+		fields["message_id"] = "Message ID is invalid."
+	}
+	if input.Body == "" || len(input.Body) > 2000 {
+		fields["body"] = "Message must contain between 1 and 2,000 characters."
+	}
+	if len(fields) > 0 {
+		return ConversationDetail{}, fields, nil
+	}
+	detail, err := s.repository.Get(ctx, tenantID, conversationID)
+	if err != nil {
+		return ConversationDetail{}, nil, err
+	}
+	if detail.Channel == "DEMO" {
+		return s.SendDemo(ctx, tenantID, conversationID, input)
+	}
+	if s.whatsAppSender == nil {
+		return ConversationDetail{}, nil, ErrProviderDisabled
+	}
+	if detail.ServiceWindowExpiresAt == nil || !time.Now().UTC().Before(*detail.ServiceWindowExpiresAt) {
+		return ConversationDetail{}, nil, ErrServiceWindowClosed
+	}
+	externalMessageID, err := s.whatsAppSender.SendText(ctx, detail.ContactPhone, input.Body)
+	if err != nil {
+		return ConversationDetail{}, nil, fmt.Errorf("%w: %v", ErrProviderDelivery, err)
+	}
+	sent, err := s.repository.RecordWhatsAppSent(
+		ctx, tenantID, conversationID, input.MessageID,
+		externalMessageID, input.Body, webutil.ActorID(ctx),
+	)
+	if err != nil {
+		return ConversationDetail{}, nil, err
+	}
+	_ = s.audit.Record(ctx, tenantID, "ASSISTANT_WHATSAPP_MESSAGE_SENT", "assistant_conversation", &conversationID, map[string]any{
+		"channel": "WHATSAPP", "provider_message_id": externalMessageID,
+		"human_approved": true,
+	})
+	return sent, nil, nil
 }
 
 func (s *Service) ReceiveDemo(

@@ -15,24 +15,28 @@ var (
 	ErrMessageNotReady       = errors.New("assistant message is not ready to send")
 	ErrQuoteMissing          = errors.New("assistant quote is missing")
 	ErrPortalDeliveryMissing = errors.New("assistant quote portal delivery is missing")
+	ErrProviderDisabled      = errors.New("WhatsApp provider is disabled")
+	ErrProviderDelivery      = errors.New("WhatsApp provider delivery failed")
+	ErrServiceWindowClosed   = errors.New("WhatsApp customer service window is closed")
 )
 
 type ConversationSummary struct {
-	ID            string    `json:"id"`
-	Channel       string    `json:"channel"`
-	CustomerID    *string   `json:"customer_id,omitempty"`
-	CustomerName  *string   `json:"customer_name,omitempty"`
-	ContactName   string    `json:"contact_name"`
-	ContactPhone  string    `json:"contact_phone"`
-	Status        string    `json:"status"`
-	ConsentStatus string    `json:"consent_status"`
-	Summary       string    `json:"summary"`
-	LastMessage   string    `json:"last_message"`
-	LastMessageAt time.Time `json:"last_message_at"`
-	QuoteID       *string   `json:"quote_id,omitempty"`
-	QuoteNumber   *int64    `json:"quote_number,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID                     string     `json:"id"`
+	Channel                string     `json:"channel"`
+	CustomerID             *string    `json:"customer_id,omitempty"`
+	CustomerName           *string    `json:"customer_name,omitempty"`
+	ContactName            string     `json:"contact_name"`
+	ContactPhone           string     `json:"contact_phone"`
+	Status                 string     `json:"status"`
+	ConsentStatus          string     `json:"consent_status"`
+	ServiceWindowExpiresAt *time.Time `json:"service_window_expires_at,omitempty"`
+	Summary                string     `json:"summary"`
+	LastMessage            string     `json:"last_message"`
+	LastMessageAt          time.Time  `json:"last_message_at"`
+	QuoteID                *string    `json:"quote_id,omitempty"`
+	QuoteNumber            *int64     `json:"quote_number,omitempty"`
+	CreatedAt              time.Time  `json:"created_at"`
+	UpdatedAt              time.Time  `json:"updated_at"`
 }
 
 type Message struct {
@@ -120,6 +124,8 @@ type SendDemoInput struct {
 	MessageID string `json:"message_id"`
 	Body      string `json:"body"`
 }
+
+type SendInput = SendDemoInput
 
 type ReceiveDemoInput struct {
 	Body string `json:"body"`

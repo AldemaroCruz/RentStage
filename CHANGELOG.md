@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.18.0 — Local Meta WhatsApp contract harness
+
+### Added
+
+- Adds local GET verification and signed POST webhook endpoints using the WhatsApp Business webhook envelope. HMAC SHA-256 is checked against the exact request body before any payload parsing.
+- Adds tenant-scoped public channel connections, inbound message and delivery-status normalization, idempotent external message IDs, a 24-hour customer-service window, and human-review drafts in the existing assistant inbox.
+- Adds a Graph-compatible text-send client and an isolated loopback implementation that returns provider-style `wamid.local.*` identifiers without contacting Meta or a real telephone.
+- Adds a PowerShell smoke test covering raw challenge verification, signed inbound delivery, duplicate redelivery, and the local Graph send contract.
+- Adds focused Go tests for webhook verification/signatures, parsing, delivery failure, configuration isolation, and Graph request shape.
+
+### Security and deployment boundary
+
+- `local_mock` is accepted only with `APP_ENV=local` and an HTTP loopback URL ending in the private local Graph harness path; cloud mode requires an HTTPS Graph origin and complete credentials.
+- Access tokens, app secrets, and verify tokens are never stored in PostgreSQL. The new migration contains only tenant association and public sender identifiers.
+- Staging and production keep Meta disabled because their workflows inject none of the local variables. Existing production secret containers remain empty.
+- The production infrastructure apply reviewed in v0.17.1 is deliberately deferred. Both production gates remain false, no production infrastructure or application is applied, and no Meta account or sender is required for this release.
+
 ## 0.17.1 — Protected production infrastructure apply
 
 ### Added

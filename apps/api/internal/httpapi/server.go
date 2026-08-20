@@ -28,6 +28,7 @@ import (
 	"github.com/rentstage/rentstage/apps/api/internal/core/quoteportal"
 	"github.com/rentstage/rentstage/apps/api/internal/core/reservation"
 	"github.com/rentstage/rentstage/apps/api/internal/core/tenant"
+	metaintegration "github.com/rentstage/rentstage/apps/api/internal/integrations/meta"
 	"github.com/rentstage/rentstage/apps/api/internal/webutil"
 )
 
@@ -72,9 +73,17 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 		cfg.WebBaseURL, cfg.PublicRequestFingerprintSalt,
 	)
 	assistantRepository := assistant.NewRepository(pool)
+	var whatsAppSender assistant.WhatsAppSender
+	if cfg.MetaWhatsAppMode != "disabled" {
+		whatsAppSender = metaintegration.NewClient(
+			cfg.MetaGraphBaseURL, cfg.MetaGraphAPIVersion,
+			cfg.MetaPhoneNumberID, cfg.MetaAccessToken,
+		)
+	}
 	assistantService := assistant.NewService(
 		assistantRepository, packageRepository, packageService,
 		customerRepository, quoteService, quotePortalService, auditRepository,
+		whatsAppSender,
 	)
 	operationsRepository := operations.NewRepository(pool)
 	billingRepository := billing.NewRepository(pool)
@@ -132,6 +141,22 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	mux.HandleFunc("GET /api/v1/public/quote-portal", quotePortalHandler.PublicView)
 	mux.HandleFunc("POST /api/v1/public/quote-portal/accept", quotePortalHandler.Accept)
 	mux.HandleFunc("POST /api/v1/public/quote-portal/reject", quotePortalHandler.Reject)
+	if cfg.MetaWhatsAppMode != "disabled" {
+		metaWebhook := metaintegration.NewWebhookHandler(
+			cfg.MetaWebhookVerifyToken, cfg.MetaAppSecret, assistantService,
+		)
+		mux.HandleFunc("GET /api/v1/integrations/meta/webhook", metaWebhook.Verify)
+		mux.HandleFunc("POST /api/v1/integrations/meta/webhook", metaWebhook.Receive)
+	}
+	if cfg.MetaWhatsAppMode == "local_mock" {
+		localGraph := metaintegration.NewLocalGraphHandler(
+			cfg.MetaAccessToken, cfg.MetaGraphAPIVersion, cfg.MetaPhoneNumberID,
+		)
+		mux.HandleFunc(
+			"POST /api/v1/integrations/meta/local-graph/{graphVersion}/{phoneNumberID}/messages",
+			localGraph.Send,
+		)
+	}
 
 	authenticated := authenticationMiddleware(authService, cfg)
 	tenantContext := tenantMiddleware(identityRepository, cfg)
@@ -163,6 +188,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/approve", identity.PermissionAssistantManage, assistantHandler.Approve)
 	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/customer", identity.PermissionAssistantManage, assistantHandler.LinkCustomer)
 	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/messages/send-demo", identity.PermissionAssistantManage, assistantHandler.SendDemo)
+	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/messages/send", identity.PermissionAssistantManage, assistantHandler.Send)
 	registerTenant("POST /api/v1/assistant/conversations/{conversationID}/messages/receive-demo", identity.PermissionAssistantManage, assistantHandler.ReceiveDemo)
 	mux.Handle(
 		"POST /api/v1/assistant/conversations/{conversationID}/quote/share-demo",

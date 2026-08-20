@@ -24,11 +24,12 @@ function statusLabel(value: AssistantConversationSummary["status"]): string {
   return "Abierta";
 }
 
-function messageLabel(message: AssistantMessage): string {
-  if (message.direction === "INBOUND") return "CLIENTE · MENSAJE SIMULADO";
+function messageLabel(message: AssistantMessage, channel: AssistantConversationSummary["channel"]): string {
+  if (message.direction === "INBOUND") return channel === "WHATSAPP" ? "CLIENTE · WEBHOOK DE WHATSAPP" : "CLIENTE · MENSAJE SIMULADO";
   if (message.status === "DRAFT") return "ASISTENTE · BORRADOR NO ENVIADO";
   if (message.status === "APPROVED") return "EQUIPO · APROBADO Y PENDIENTE";
-  if (message.status === "SENT") return "EQUIPO · ENTREGADO EN EL SIMULADOR";
+  if (message.status === "SENT") return channel === "WHATSAPP" ? "EQUIPO · ACEPTADO POR META LOCAL" : "EQUIPO · ENTREGADO EN EL SIMULADOR";
+  if (message.status === "FAILED") return "EQUIPO · ENTREGA FALLIDA";
   return "EQUIPO";
 }
 
@@ -248,7 +249,7 @@ export default function AssistantPage() {
           company_name: customerDraft.company_name || null,
           preferred_language: "es",
           source: "WHATSAPP",
-          notes: `Creado desde la conversación demo ${detail.id}.`,
+          notes: `Creado desde la conversación ${detail.channel.toLowerCase()} ${detail.id}.`,
         }),
       });
       await loadCustomers(created.id);
@@ -288,22 +289,24 @@ export default function AssistantPage() {
     }
   }
 
-  async function sendDemo() {
+  async function sendMessage() {
     if (!detail) return;
     setWorking(true);
     setError("");
     setNotice("");
     try {
-      const sent = await api<AssistantConversationDetail>(`/api/v1/assistant/conversations/${detail.id}/messages/send-demo`, {
+      const sent = await api<AssistantConversationDetail>(`/api/v1/assistant/conversations/${detail.id}/messages/send`, {
         method: "POST",
         body: JSON.stringify({ message_id: pendingMessage?.id || "", body: sendBody }),
       });
       setDetail(sent);
       setSendBody("");
-      setNotice("Respuesta entregada únicamente dentro del simulador. No se contactó ningún teléfono real.");
+      setNotice(detail.channel === "WHATSAPP"
+        ? "Meta local aceptó la respuesta. El adaptador de desarrollo no contacta ningún teléfono real."
+        : "Respuesta entregada únicamente dentro del simulador. No se contactó ningún teléfono real.");
       await loadList(sent.id);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "No fue posible enviar la respuesta demo.");
+      setError(reason instanceof Error ? reason.message : "No fue posible enviar la respuesta.");
     } finally {
       setWorking(false);
     }
@@ -390,18 +393,19 @@ export default function AssistantPage() {
     review: items.filter((item) => item.status === "HUMAN_REVIEW").length,
     drafted: items.filter((item) => Boolean(item.quote_id)).length,
     demo: items.filter((item) => item.channel === "DEMO").length,
+    whatsapp: items.filter((item) => item.channel === "WHATSAPP").length,
   }), [items]);
 
   return (
     <div className="page-stack assistant-page">
       <section className="assistant-hero">
         <div>
-          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.15.5</p>
+          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.18.0</p>
           <h2>Convierte consultas en cotizaciones, con una persona al mando.</h2>
-          <p>Conversa de punta a punta en el canal simulado, crea clientes y valida el proceso comercial antes de conectar Meta.</p>
+          <p>Prueba el contrato de Meta de punta a punta en local, conserva la revisión humana y crea clientes sin contactar teléfonos reales.</p>
         </div>
         <div className="assistant-hero-actions">
-          <span className="assistant-provider-pill"><i /> CANAL DEMO</span>
+          <span className="assistant-provider-pill"><i /> {detail?.channel === "WHATSAPP" ? "META LOCAL" : "CANAL DEMO"}</span>
           {canManage && <button className="button button-primary" onClick={() => setComposerOpen((value) => !value)}>{composerOpen ? "Cerrar simulador" : "Simular consulta"}</button>}
           {canManage && <button className="button button-secondary assistant-reset-button" onClick={resetDemo}>Reiniciar demo</button>}
         </div>
@@ -410,7 +414,7 @@ export default function AssistantPage() {
       <section className="assistant-boundary-strip">
         <strong>Control humano obligatorio</strong>
         <span>Cada borrador requiere que alguien pulse enviar.</span>
-        <span>La entrega DEMO nunca contacta un teléfono real.</span>
+        <span>DEMO y META LOCAL nunca contactan un teléfono real.</span>
         <span>Nunca reserva inventario automáticamente.</span>
       </section>
 
@@ -434,7 +438,7 @@ export default function AssistantPage() {
       {(error || notice) && <div className={error ? "inline-error" : "assistant-notice"}>{error || notice}</div>}
 
       <section className="assistant-metrics">
-        <article><span>Conversaciones</span><strong>{items.length}</strong><small>{metrics.demo} en canal demo</small></article>
+        <article><span>Conversaciones</span><strong>{items.length}</strong><small>{metrics.demo} demo · {metrics.whatsapp} Meta local</small></article>
         <article><span>Revisión humana</span><strong>{metrics.review}</strong><small>respuestas esperando aprobación</small></article>
         <article><span>Cotizaciones creadas</span><strong>{metrics.drafted}</strong><small>borrador, portal y decisión trazables</small></article>
       </section>
@@ -462,7 +466,7 @@ export default function AssistantPage() {
               <div className="assistant-chat-day">HOY · DEMOSTRACIÓN</div>
               {detail.messages.map((message) => (
                 <article key={message.id} className={`assistant-bubble ${message.direction === "OUTBOUND" ? "outbound" : "inbound"} ${message.status === "DRAFT" ? "draft" : ""}`}>
-                  <small>{messageLabel(message)}</small>
+                  <small>{messageLabel(message, detail.channel)}</small>
                   <p>{message.body}</p>
                   {message.metadata.message_kind === "QUOTE_PORTAL" && <div className="assistant-message-portal">
                     <strong>{portalStatusLabel(detail.proposal?.portal_status)}</strong>
@@ -472,14 +476,14 @@ export default function AssistantPage() {
                 </article>
               ))}
             </div>
-            {canManage && detail.channel === "DEMO" && <div className="assistant-chat-composer">
+            {canManage && <div className="assistant-chat-composer">
               <label><span>{pendingMessage ? "Revisar borrador antes de enviar" : "Responder como miembro del equipo"}</span><textarea value={sendBody} onChange={(event) => setSendBody(event.target.value)} placeholder="Escribe una respuesta para el cliente…" /></label>
               <div className="assistant-composer-actions">
-                <small>La entrega ocurre solamente dentro de este chat demo.</small>
-                <button className="button button-primary" onClick={() => void sendDemo()} disabled={working || !sendBody.trim()}>{working ? "Procesando…" : "Enviar respuesta demo"}</button>
+                <small>{detail.channel === "WHATSAPP" ? "La entrega usa el Graph API local y no sale a Internet." : "La entrega ocurre solamente dentro de este chat demo."}</small>
+                <button className="button button-primary" onClick={() => void sendMessage()} disabled={working || !sendBody.trim()}>{working ? "Procesando…" : detail.channel === "WHATSAPP" ? "Enviar por Meta local" : "Enviar respuesta demo"}</button>
               </div>
-              <button className="assistant-incoming-toggle" onClick={() => setIncomingOpen((value) => !value)}>{incomingOpen ? "Cancelar mensaje del cliente" : "+ Simular respuesta del cliente"}</button>
-              {incomingOpen && <form className="assistant-incoming-form" onSubmit={receiveDemo}>
+              {detail.channel === "DEMO" && <button className="assistant-incoming-toggle" onClick={() => setIncomingOpen((value) => !value)}>{incomingOpen ? "Cancelar mensaje del cliente" : "+ Simular respuesta del cliente"}</button>}
+              {detail.channel === "DEMO" && incomingOpen && <form className="assistant-incoming-form" onSubmit={receiveDemo}>
                 <textarea value={incomingBody} onChange={(event) => setIncomingBody(event.target.value)} placeholder="Ej.: ¿Puedo pagar un anticipo?" required />
                 <button className="button button-secondary" disabled={working || !incomingBody.trim()}>Recibir en demo</button>
               </form>}
