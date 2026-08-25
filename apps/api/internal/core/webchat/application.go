@@ -149,18 +149,40 @@ func (s *Service) SendMessage(
 		return SessionView{}, fields, nil
 	}
 
+	now := s.now()
+
+	preparation, err := s.repository.PrepareInboundDraft(
+		ctx,
+		tenantSlug,
+		sessionID,
+		tokenHash,
+		normalized,
+		now,
+	)
+	if err != nil {
+		return SessionView{}, nil, err
+	}
+
+	var draft DraftResult
+	if !preparation.Duplicate {
+		draft, err = s.generateDraft(ctx, preparation.Request)
+		if err != nil {
+			return SessionView{}, nil, fmt.Errorf(
+				"generate follow-up web chat draft: %w",
+				err,
+			)
+		}
+	}
+
 	item, err := s.repository.AddInboundMessage(
 		ctx,
 		tenantSlug,
 		sessionID,
 		tokenHash,
 		normalized,
-		followUpResponseDraft(),
-		s.now(),
+		draft,
+		now,
 	)
-	if err != nil {
-		return SessionView{}, nil, err
-	}
 
 	return item, nil, nil
 }
