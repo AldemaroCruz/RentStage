@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.1 — Resilient web-chat recovery and polling
+
+### Fixed
+
+- Reuses the same client message identifier when a visitor retries unchanged content, allowing the existing API idempotency contract to prevent duplicate inbound messages and assistant drafts.
+- Preserves a valid tab-scoped chat session when restoration fails because of a temporary browser or network error; only missing or expired sessions clear the stored credential.
+- Replaces overlapping interval polling with sequential, cancellable polling that pauses while the page is hidden and resumes immediately when the visitor returns.
+- Adds bounded polling backoff at 4, 8, 16, and 30 seconds, a visible reconnection notice, localized transport failures, and immediate synchronization when the widget opens.
+- Clarifies that the seven-day server session remains resumable while the visitor keeps the browser tab.
+
+### Security and compatibility
+
+- Raw web-chat tokens remain exclusively in tab-scoped `sessionStorage`; PostgreSQL continues to store only SHA-256 hashes.
+- Human approval remains mandatory, assistant drafts remain private, and retry behavior creates no automatic quote, reservation, inventory, Meta, or cloud-delivery side effect.
+- Adds no migration, environment variable, secret, IAM permission, Terraform resource, WebSocket, service worker, or external provider.
+
 ## 0.19.0 — Omnichannel core and first-party web chat
 
 ### Added

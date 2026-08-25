@@ -2,6 +2,13 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
+import {
+  classifyPublicWebChatFailure,
+  pendingPublicWebChatMessage,
+  PUBLIC_WEB_CHAT_POLL_INTERVAL_MS,
+  publicWebChatPollDelay,
+  type PendingPublicWebChatMessage,
+} from "@/lib/public-web-chat";
 import type {
   PublicCatalogViewSettings,
   PublicTenant,
@@ -41,7 +48,7 @@ function operationError(reason: unknown, fallback: string): string {
     if (reason.status === 410) return "Esta conversación venció. Inicia una nueva para continuar.";
     if (reason.status === 429) return "Has enviado varios mensajes. Intenta nuevamente más tarde.";
   }
-  return reason instanceof Error ? reason.message : fallback;
+  return fallback;
 }
 
 function messageTime(value: string): string {
@@ -59,10 +66,12 @@ export function PublicWebChat({
 }) {
   const [open, setOpen] = useState(false);
   const [restoring, setRestoring] = useState(true);
+  const [restoreTarget, setRestoreTarget] = useState<StoredChat | null>(null);
   const [working, setWorking] = useState(false);
   const [session, setSession] = useState<PublicWebChatSession | null>(null);
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
+  const [connectionNotice, setConnectionNotice] = useState("");
   const [body, setBody] = useState("");
   const [draft, setDraft] = useState({
     contact_name: "",
@@ -72,56 +81,202 @@ export function PublicWebChat({
     website: "",
   });
   const messageListRef = useRef<HTMLDivElement>(null);
+  const operationInFlightRef = useRef(false);
+  const pendingMessageRef = useRef<PendingPublicWebChatMessage | null>(null);
 
-  const getSession = useCallback(async (sessionID: string, sessionToken: string) => {
-    return api<PublicWebChatSession>(
-      `/api/v1/public/chat/${encodeURIComponent(tenant.slug)}/sessions/${encodeURIComponent(sessionID)}`,
-      { headers: { "X-RentStage-Chat-Token": sessionToken } },
-    );
-  }, [tenant.slug]);
+  const getSession = useCallback(
+    async (
+      sessionID: string,
+      sessionToken: string,
+      signal?: AbortSignal,
+    ) => {
+      return api<PublicWebChatSession>(
+        `/api/v1/public/chat/${encodeURIComponent(tenant.slug)}/sessions/${encodeURIComponent(sessionID)}`,
+        {
+          headers: { "X-RentStage-Chat-Token": sessionToken },
+          signal,
+        },
+      );
+    },
+    [tenant.slug],
+  );
 
   useEffect(() => {
     let active = true;
     const stored = readStoredChat(tenant.slug);
+
     if (!stored) {
       setRestoring(false);
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
 
+    setRestoreTarget(stored);
     setToken(stored.token);
+
     getSession(stored.session_id, stored.token)
       .then((item) => {
-        if (active) setSession(item);
-      })
-      .catch(() => {
         if (!active) return;
-        forgetStoredChat(tenant.slug);
-        setToken("");
+        setSession(item);
+        setRestoreTarget(null);
+        setError("");
+      })
+      .catch((reason) => {
+        if (!active) return;
+
+        const failure = classifyPublicWebChatFailure(
+          reason instanceof ApiError ? reason.status : undefined,
+        );
+
+        if (failure === "terminal") {
+          forgetStoredChat(tenant.slug);
+          setRestoreTarget(null);
+          setToken("");
+          setError(
+            "La conversación anterior ya no está disponible. Puedes iniciar una nueva.",
+          );
+          return;
+        }
+
+        setError(
+          "No fue posible recuperar la conversación. Revisa tu conexión e intenta nuevamente.",
+        );
       })
       .finally(() => {
         if (active) setRestoring(false);
       });
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [getSession, tenant.slug]);
 
   useEffect(() => {
     if (!open || !session || !token || session.status !== "ACTIVE") return;
+
     const sessionID = session.id;
-    const interval = window.setInterval(() => {
-      getSession(sessionID, token)
-        .then(setSession)
-        .catch((reason) => {
-          if (reason instanceof ApiError && [404, 410].includes(reason.status)) {
-            forgetStoredChat(tenant.slug);
-            setSession(null);
-            setToken("");
-            setError("La conversación ya no está disponible. Puedes iniciar una nueva.");
-          }
-        });
-    }, 4_000);
-    return () => window.clearInterval(interval);
-  }, [getSession, open, session, tenant.slug, token]);
+    let cancelled = false;
+    let terminal = false;
+    let inFlight = false;
+    let consecutiveFailures = 0;
+    let timer: number | null = null;
+    let requestController: AbortController | null = null;
+
+    setConnectionNotice("");
+
+    function clearTimer() {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    function schedule(delay: number) {
+      if (cancelled || terminal) return;
+
+      clearTimer();
+      timer = window.setTimeout(() => {
+        void poll();
+      }, delay);
+    }
+
+    async function poll() {
+      if (cancelled || terminal || inFlight) return;
+
+      if (
+        document.visibilityState === "hidden" ||
+        operationInFlightRef.current
+      ) {
+        schedule(0);
+        return;
+      }
+
+      inFlight = true;
+      requestController = new AbortController();
+      let nextDelay = PUBLIC_WEB_CHAT_POLL_INTERVAL_MS;
+
+      try {
+        const item = await getSession(
+          sessionID,
+          token,
+          requestController.signal,
+        );
+
+        if (cancelled) return;
+
+        consecutiveFailures = 0;
+        setSession(item);
+        setConnectionNotice("");
+      } catch (reason) {
+        if (cancelled) return;
+
+        const failure = classifyPublicWebChatFailure(
+          reason instanceof ApiError ? reason.status : undefined,
+        );
+
+        if (failure === "terminal") {
+          terminal = true;
+          forgetStoredChat(tenant.slug);
+          pendingMessageRef.current = null;
+          setRestoreTarget(null);
+          setSession(null);
+          setToken("");
+          setConnectionNotice("");
+          setError(
+            "La conversación ya no está disponible. Puedes iniciar una nueva.",
+          );
+          return;
+        }
+
+        consecutiveFailures += 1;
+        nextDelay = publicWebChatPollDelay(consecutiveFailures);
+        setConnectionNotice(
+          "Conexión inestable. Reintentaremos automáticamente.",
+        );
+      } finally {
+        inFlight = false;
+        requestController = null;
+
+        if (!cancelled && !terminal) {
+          schedule(nextDelay);
+        }
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (
+        document.visibilityState !== "visible" ||
+        cancelled ||
+        terminal
+      ) {
+        return;
+      }
+
+      clearTimer();
+      void poll();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    schedule(PUBLIC_WEB_CHAT_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimer();
+      requestController?.abort();
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
+  }, [
+    getSession,
+    open,
+    session?.id,
+    session?.status,
+    tenant.slug,
+    token,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -131,8 +286,51 @@ export function PublicWebChat({
     });
   }, [open, session?.messages.length]);
 
+  async function retryRestore() {
+    if (!restoreTarget || operationInFlightRef.current) return;
+
+    operationInFlightRef.current = true;
+    setRestoring(true);
+    setError("");
+
+    try {
+      const item = await getSession(
+        restoreTarget.session_id,
+        restoreTarget.token,
+      );
+
+      setSession(item);
+      setToken(restoreTarget.token);
+      setRestoreTarget(null);
+    } catch (reason) {
+      const failure = classifyPublicWebChatFailure(
+        reason instanceof ApiError ? reason.status : undefined,
+      );
+
+      if (failure === "terminal") {
+        forgetStoredChat(tenant.slug);
+        setRestoreTarget(null);
+        setSession(null);
+        setToken("");
+        setError(
+          "La conversación anterior ya no está disponible. Puedes iniciar una nueva.",
+        );
+      } else {
+        setError(
+          "No fue posible recuperar la conversación. Revisa tu conexión e intenta nuevamente.",
+        );
+      }
+    } finally {
+      operationInFlightRef.current = false;
+      setRestoring(false);
+    }
+  }
+
   async function createSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (operationInFlightRef.current) return;
+    operationInFlightRef.current = true;
     setWorking(true);
     setError("");
     try {
@@ -160,38 +358,81 @@ export function PublicWebChat({
     } catch (reason) {
       setError(operationError(reason, "No fue posible iniciar la conversación."));
     } finally {
+      operationInFlightRef.current = false;
       setWorking(false);
     }
   }
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!session || !token || !body.trim()) return;
+
+    if (operationInFlightRef.current || !session || !token) return;
+
+    const pending = pendingPublicWebChatMessage(
+      pendingMessageRef.current,
+      body,
+      () => crypto.randomUUID(),
+    );
+    if (!pending) return;
+
+    pendingMessageRef.current = pending;
+    operationInFlightRef.current = true;
     setWorking(true);
     setError("");
+
     try {
       const result = await api<PublicWebChatSession>(
         `/api/v1/public/chat/${encodeURIComponent(tenant.slug)}/sessions/${encodeURIComponent(session.id)}/messages`,
         {
           method: "POST",
           headers: { "X-RentStage-Chat-Token": token },
-          body: JSON.stringify({ body, client_message_id: crypto.randomUUID() }),
+          body: JSON.stringify({
+            body: pending.body,
+            client_message_id: pending.clientMessageId,
+          }),
         },
       );
+
+      pendingMessageRef.current = null;
       setSession(result);
       setBody("");
     } catch (reason) {
-      setError(operationError(reason, "No fue posible enviar el mensaje."));
+      const failure = classifyPublicWebChatFailure(
+        reason instanceof ApiError ? reason.status : undefined,
+      );
+
+      if (failure === "terminal") {
+        forgetStoredChat(tenant.slug);
+        pendingMessageRef.current = null;
+        setSession(null);
+        setToken("");
+        setConnectionNotice("");
+        setBody("");
+        setDraft((value) => ({
+          ...value,
+          contact_name: value.contact_name || session.contact_name,
+          message: pending.body,
+        }));
+        setError(
+          "La conversación ya no está disponible. Inicia una nueva para continuar.",
+        );
+      } else {
+        setError(operationError(reason, "No fue posible enviar el mensaje."));
+      }
     } finally {
+      operationInFlightRef.current = false;
       setWorking(false);
     }
-  }
+}
 
   function startNewConversation() {
+    pendingMessageRef.current = null;
     forgetStoredChat(tenant.slug);
     setSession(null);
     setToken("");
     setBody("");
+    setRestoreTarget(null);
+    setConnectionNotice("");
     setError("");
   }
 
@@ -207,11 +448,33 @@ export function PublicWebChat({
 
           {restoring ? (
             <div className="public-web-chat-state"><span className="public-loader" /><p>Recuperando conversación…</p></div>
-          ) : session ? (
+          ) : restoreTarget ? (
+            <div className="public-web-chat-ended">
+              <p>
+                {error ||
+                  "No fue posible recuperar la conversación guardada."}
+              </p>
+
+              <button
+                type="button"
+                onClick={retryRestore}
+                disabled={working}
+              >
+                Reintentar
+              </button>
+
+              <button
+                type="button"
+                onClick={startNewConversation}
+                disabled={working}
+              >
+                Iniciar nueva conversación
+              </button>
+            </div> ) : session ? (
             <>
               <div className="public-web-chat-messages" ref={messageListRef} aria-live="polite">
                 <div className="public-web-chat-intro">
-                  Esta conversación permanece disponible durante siete días en este navegador.
+                  Esta conversación permanece disponible hasta siete días mientras mantengas esta pestaña.
                 </div>
                 {session.messages.map((message) => {
                   const fromVisitor = message.direction === "INBOUND";
@@ -226,6 +489,11 @@ export function PublicWebChat({
               </div>
               {session.status === "ACTIVE" ? (
                 <form className="public-web-chat-composer" onSubmit={sendMessage}>
+                  {connectionNotice && (
+                    <p className="public-web-chat-notice" role="status">
+                      {connectionNotice}
+                    </p>
+                  )}
                   {error && <p className="public-web-chat-error">{error}</p>}
                   <label>
                     <span className="sr-only">Escribe tu mensaje</span>

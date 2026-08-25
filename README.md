@@ -1,8 +1,18 @@
-# RentStage Starter v0.19.0
+# RentStage Starter v0.19.1
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox omnicanal con chat web propio, recomendaciones sobre paquetes reales y aprobación humana antes de cada respuesta.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## Reliability update in v0.19.1
+
+- Makes visitor-message retries idempotent by preserving the client message identifier until delivery succeeds or the message content changes.
+- Keeps valid tab-scoped sessions available after temporary restoration failures and offers an explicit retry path instead of silently discarding the conversation.
+- Uses sequential, cancellable polling with hidden-tab suspension, immediate foreground synchronization, and bounded reconnection backoff.
+- Shows a localized connection notice while preserving the visitor's unsent message and the existing seven-day server expiration.
+- Keeps human publication mandatory and introduces no database migration, external messaging provider, WebSocket, cloud resource, secret, or production side effect.
+
+See [`docs/UPGRADE-0.19.1.md`](docs/UPGRADE-0.19.1.md) and [`docs/VALIDATION-0.19.1.md`](docs/VALIDATION-0.19.1.md).
 
 ## New in v0.19.0
 

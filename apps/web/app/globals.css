@@ -7516,6 +7516,16 @@ p {
   line-height: 1.4;
 }
 
+.public-web-chat-notice {
+  grid-column: 1 / -1;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: #fff8df;
+  color: #745710;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
 .public-web-chat-start {
   position: relative;
   display: grid;
