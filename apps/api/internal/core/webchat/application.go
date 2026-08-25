@@ -70,13 +70,30 @@ func (s *Service) CreateSession(
 
 	now := s.now()
 
+	draft, err := s.generateDraft(
+		ctx,
+		DraftRequest{
+			Kind:            DraftKindInitial,
+			TenantName:      configuration.TenantName,
+			TenantSlug:      configuration.TenantSlug,
+			ContactName:     normalized.ContactName,
+			CustomerMessage: normalized.Message,
+		},
+	)
+	if err != nil {
+		return CreateSessionResult{}, nil, fmt.Errorf(
+			"generate initial web chat draft: %w",
+			err,
+		)
+	}
+
 	item, err := s.repository.CreateSession(
 		ctx,
 		configuration,
 		normalized,
 		tokenHash,
 		now.Add(SessionDuration),
-		initialResponseDraft(normalized.ContactName),
+		draft,
 		now,
 	)
 	if err != nil {

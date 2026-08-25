@@ -75,7 +75,7 @@ func (r *Repository) CreateSession(
 	input normalizedCreateSession,
 	tokenHash string,
 	expiresAt time.Time,
-	responseDraft string,
+	responseDraft DraftResult,
 	now time.Time,
 ) (SessionView, error) {
 	tx, err := r.pool.Begin(ctx)
@@ -235,37 +235,30 @@ func (r *Repository) CreateSession(
 		)
 	}
 
-	if strings.TrimSpace(responseDraft) != "" {
+	if strings.TrimSpace(responseDraft.Body) != "" {
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO assistant_messages (
-				tenant_id,
-				conversation_id,
-				direction,
-				sender_type,
-				provider,
-				body,
-				status,
-				metadata,
-				created_at
+				tenant_id, conversation_id, direction, sender_type, provider,
+				body, status, metadata, created_at
 			) VALUES (
-				$1,
-				$2,
-				'OUTBOUND',
-				'ASSISTANT',
-				'WEB_CHAT',
-				$3,
-				'DRAFT',
+				$1, $2, 'OUTBOUND', 'ASSISTANT', 'WEB_CHAT',
+				$3, 'DRAFT',
 				jsonb_build_object(
-					'engine', 'WEB_CHAT_RULES',
+					'engine', $4::text,
+					'model', $5::text,
+					'used_fallback', $6::boolean,
 					'human_approval_required', TRUE,
-					'source_message_id', $4::text
+					'source_message_id', $7::text
 				),
-				$5
+				$8
 			)
 		`,
 			configuration.TenantID,
 			conversationID,
-			responseDraft,
+			responseDraft.Body,
+			responseDraft.Engine,
+			responseDraft.Model,
+			responseDraft.UsedFallback,
 			input.ClientMessageID,
 			now.Add(time.Microsecond),
 		); err != nil {
