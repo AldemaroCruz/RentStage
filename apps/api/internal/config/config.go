@@ -177,7 +177,7 @@ func validateMetaWhatsApp(cfg Config) error {
 			return err
 		}
 		if cfg.MetaOutboundEnabled {
-			return fmt.Errorf("META_OUTBOUND_ENABLED cannot be true in cloud mode in v0.19.0; real delivery remains deferred")
+			return fmt.Errorf("META_OUTBOUND_ENABLED cannot be true in cloud mode in v0.19.1; real delivery remains deferred")
 		}
 	default:
 		return fmt.Errorf("META_WHATSAPP_MODE must be disabled, local_mock, or cloud")
