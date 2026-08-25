@@ -3,6 +3,7 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func setValidLocalEnvironment(t *testing.T) {
@@ -30,6 +31,156 @@ func setValidLocalEnvironment(t *testing.T) {
 	t.Setenv("META_ACCESS_TOKEN", "")
 	t.Setenv("META_APP_SECRET", "")
 	t.Setenv("META_WEBHOOK_VERIFY_TOKEN", "")
+	t.Setenv("ASSISTANT_AI_MODE", "rules")
+	t.Setenv("ASSISTANT_AI_PROJECT_ID", "")
+	t.Setenv("ASSISTANT_AI_LOCATION", "")
+	t.Setenv("ASSISTANT_AI_MODEL", "")
+	t.Setenv("ASSISTANT_AI_TIMEOUT", "")
+	t.Setenv("ASSISTANT_AI_MAX_OUTPUT_TOKENS", "")
+}
+
+func TestLoadUsesSafeAssistantAIDefaults(t *testing.T) {
+	setValidLocalEnvironment(t)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned an error: %v", err)
+	}
+
+	if cfg.AssistantAIMode != "rules" {
+		t.Fatalf(
+			"AssistantAIMode = %q, want rules",
+			cfg.AssistantAIMode,
+		)
+	}
+	if cfg.AssistantAILocation != "us-central1" {
+		t.Fatalf(
+			"AssistantAILocation = %q",
+			cfg.AssistantAILocation,
+		)
+	}
+	if cfg.AssistantAIModel != "gemini-2.5-flash" {
+		t.Fatalf(
+			"AssistantAIModel = %q",
+			cfg.AssistantAIModel,
+		)
+	}
+	if cfg.AssistantAITimeout != 8*time.Second {
+		t.Fatalf(
+			"AssistantAITimeout = %s",
+			cfg.AssistantAITimeout,
+		)
+	}
+	if cfg.AssistantAIMaxOutputTokens != 512 {
+		t.Fatalf(
+			"AssistantAIMaxOutputTokens = %d",
+			cfg.AssistantAIMaxOutputTokens,
+		)
+	}
+}
+
+func TestLoadAllowsVertexAssistantAIWithExplicitConfiguration(t *testing.T) {
+	setValidLocalEnvironment(t)
+	t.Setenv("ASSISTANT_AI_MODE", "vertex")
+	t.Setenv("ASSISTANT_AI_PROJECT_ID", "rentstage-ai-test")
+	t.Setenv("ASSISTANT_AI_LOCATION", "us-central1")
+	t.Setenv("ASSISTANT_AI_MODEL", "gemini-2.5-flash")
+	t.Setenv("ASSISTANT_AI_TIMEOUT", "6s")
+	t.Setenv("ASSISTANT_AI_MAX_OUTPUT_TOKENS", "384")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned an error: %v", err)
+	}
+	if cfg.AssistantAIMode != "vertex" {
+		t.Fatalf(
+			"AssistantAIMode = %q, want vertex",
+			cfg.AssistantAIMode,
+		)
+	}
+	if cfg.AssistantAIProjectID != "rentstage-ai-test" {
+		t.Fatalf(
+			"AssistantAIProjectID = %q",
+			cfg.AssistantAIProjectID,
+		)
+	}
+}
+
+func TestLoadRejectsUnknownAssistantAIMode(t *testing.T) {
+	setValidLocalEnvironment(t)
+	t.Setenv("ASSISTANT_AI_MODE", "automatic")
+
+	_, err := Load()
+	if err == nil ||
+		!strings.Contains(err.Error(), "ASSISTANT_AI_MODE") {
+		t.Fatalf(
+			"expected assistant AI mode validation error, got %v",
+			err,
+		)
+	}
+}
+
+func TestLoadRejectsVertexAssistantAIWithoutProject(t *testing.T) {
+	setValidLocalEnvironment(t)
+	t.Setenv("ASSISTANT_AI_MODE", "vertex")
+
+	_, err := Load()
+	if err == nil ||
+		!strings.Contains(err.Error(), "ASSISTANT_AI_PROJECT_ID") {
+		t.Fatalf(
+			"expected assistant AI project validation error, got %v",
+			err,
+		)
+	}
+}
+
+func TestLoadRejectsInvalidAssistantAILimits(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value string
+	}{
+		{
+			name:  "timeout syntax",
+			key:   "ASSISTANT_AI_TIMEOUT",
+			value: "soon",
+		},
+		{
+			name:  "timeout too long",
+			key:   "ASSISTANT_AI_TIMEOUT",
+			value: "30s",
+		},
+		{
+			name:  "token syntax",
+			key:   "ASSISTANT_AI_MAX_OUTPUT_TOKENS",
+			value: "many",
+		},
+		{
+			name:  "tokens too low",
+			key:   "ASSISTANT_AI_MAX_OUTPUT_TOKENS",
+			value: "32",
+		},
+		{
+			name:  "tokens too high",
+			key:   "ASSISTANT_AI_MAX_OUTPUT_TOKENS",
+			value: "4096",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			setValidLocalEnvironment(t)
+			t.Setenv(test.key, test.value)
+
+			if _, err := Load(); err == nil {
+				t.Fatalf(
+					"expected validation error for %s=%q",
+					test.key,
+					test.value,
+				)
+			}
+		})
+	}
 }
 
 func setValidStagingEnvironment(t *testing.T) {

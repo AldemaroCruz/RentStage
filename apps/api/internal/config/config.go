@@ -39,6 +39,12 @@ type Config struct {
 	MetaAccessToken              string
 	MetaAppSecret                string
 	MetaWebhookVerifyToken       string
+	AssistantAIMode              string
+	AssistantAIProjectID         string
+	AssistantAILocation          string
+	AssistantAIModel             string
+	AssistantAITimeout           time.Duration
+	AssistantAIMaxOutputTokens   int
 }
 
 func Load() (Config, error) {
@@ -70,6 +76,10 @@ func Load() (Config, error) {
 		MetaAccessToken:              strings.TrimSpace(os.Getenv("META_ACCESS_TOKEN")),
 		MetaAppSecret:                strings.TrimSpace(os.Getenv("META_APP_SECRET")),
 		MetaWebhookVerifyToken:       strings.TrimSpace(os.Getenv("META_WEBHOOK_VERIFY_TOKEN")),
+		AssistantAIMode:              strings.ToLower(env("ASSISTANT_AI_MODE", "rules")),
+		AssistantAIProjectID:         strings.TrimSpace(os.Getenv("ASSISTANT_AI_PROJECT_ID")),
+		AssistantAILocation:          env("ASSISTANT_AI_LOCATION", "us-central1"),
+		AssistantAIModel:             env("ASSISTANT_AI_MODEL", "gemini-2.5-flash"),
 	}
 
 	if cfg.AppEnv != "local" && cfg.AppEnv != "staging" && cfg.AppEnv != "production" {
@@ -105,6 +115,32 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("local auth bootstrap requires LOCAL_OWNER_EMAIL and a password of at least 6 characters")
 	}
 	if err := validateMetaWhatsApp(cfg); err != nil {
+		return Config{}, err
+	}
+
+	assistantAITimeout, err := time.ParseDuration(
+		env("ASSISTANT_AI_TIMEOUT", "8s"),
+	)
+	if err != nil {
+		return Config{}, fmt.Errorf(
+			"ASSISTANT_AI_TIMEOUT is invalid: %w",
+			err,
+		)
+	}
+	cfg.AssistantAITimeout = assistantAITimeout
+
+	assistantAIMaxOutputTokens, err := strconv.Atoi(
+		env("ASSISTANT_AI_MAX_OUTPUT_TOKENS", "512"),
+	)
+	if err != nil {
+		return Config{}, fmt.Errorf(
+			"ASSISTANT_AI_MAX_OUTPUT_TOKENS is invalid: %w",
+			err,
+		)
+	}
+	cfg.AssistantAIMaxOutputTokens = assistantAIMaxOutputTokens
+
+	if err := validateAssistantAI(cfg); err != nil {
 		return Config{}, err
 	}
 
@@ -156,6 +192,48 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func validateAssistantAI(cfg Config) error {
+	switch cfg.AssistantAIMode {
+	case "rules":
+	case "vertex":
+		if cfg.AssistantAIProjectID == "" {
+			return fmt.Errorf(
+				"ASSISTANT_AI_PROJECT_ID is required when ASSISTANT_AI_MODE=vertex",
+			)
+		}
+		if cfg.AssistantAILocation == "" {
+			return fmt.Errorf(
+				"ASSISTANT_AI_LOCATION is required when ASSISTANT_AI_MODE=vertex",
+			)
+		}
+		if cfg.AssistantAIModel == "" {
+			return fmt.Errorf(
+				"ASSISTANT_AI_MODEL is required when ASSISTANT_AI_MODE=vertex",
+			)
+		}
+	default:
+		return fmt.Errorf(
+			"ASSISTANT_AI_MODE must be rules or vertex",
+		)
+	}
+
+	if cfg.AssistantAITimeout < time.Second ||
+		cfg.AssistantAITimeout > 20*time.Second {
+		return fmt.Errorf(
+			"ASSISTANT_AI_TIMEOUT must be between 1s and 20s",
+		)
+	}
+
+	if cfg.AssistantAIMaxOutputTokens < 64 ||
+		cfg.AssistantAIMaxOutputTokens > 2048 {
+		return fmt.Errorf(
+			"ASSISTANT_AI_MAX_OUTPUT_TOKENS must be between 64 and 2048",
+		)
+	}
+
+	return nil
 }
 
 func validateMetaWhatsApp(cfg Config) error {
