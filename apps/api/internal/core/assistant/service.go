@@ -360,6 +360,34 @@ func (s *Service) Send(
 	if detail.ConsentStatus == "OPTED_OUT" {
 		return ConversationDetail{}, nil, ErrConsentRevoked
 	}
+	if detail.Channel == "WEB_CHAT" {
+		sent, err := s.repository.RecordWebChatSent(
+			ctx,
+			tenantID,
+			conversationID,
+			input.MessageID,
+			input.Body,
+			webutil.ActorID(ctx),
+		)
+		if err != nil {
+			return ConversationDetail{}, nil, err
+		}
+
+		_ = s.audit.Record(
+			ctx,
+			tenantID,
+			"ASSISTANT_WEB_CHAT_MESSAGE_SENT",
+			"assistant_conversation",
+			&conversationID,
+			map[string]any{
+				"channel":        "WEB_CHAT",
+				"message_id":     input.MessageID,
+				"human_approved": true,
+			},
+		)
+
+		return sent, nil, nil
+	}
 	if s.whatsAppSender == nil {
 		return ConversationDetail{}, nil, ErrProviderDisabled
 	}

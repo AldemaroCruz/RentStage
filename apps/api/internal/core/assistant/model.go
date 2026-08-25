@@ -28,6 +28,7 @@ type ConversationSummary struct {
 	CustomerName           *string    `json:"customer_name,omitempty"`
 	ContactName            string     `json:"contact_name"`
 	ContactPhone           string     `json:"contact_phone"`
+	ContactEmail           *string    `json:"contact_email,omitempty"`
 	Status                 string     `json:"status"`
 	ConsentStatus          string     `json:"consent_status"`
 	ServiceWindowExpiresAt *time.Time `json:"service_window_expires_at,omitempty"`

@@ -40,9 +40,10 @@ func (r *Repository) GetSettings(ctx context.Context, tenantID string) (Settings
 	}
 	return scanSettings(r.pool.QueryRow(ctx, `
 		SELECT tenant_id, enabled, headline, description, cover_image_url,
-		       accent_color, show_prices, show_resources, quote_requests_enabled,
-		       contact_email, contact_phone, contact_address, terms_text, terms_version,
-		       created_at, updated_at
+			accent_color, show_prices, show_resources, quote_requests_enabled,
+			web_chat_enabled,
+			contact_email, contact_phone, contact_address, terms_text, terms_version,
+			created_at, updated_at
 		FROM public_catalog_settings
 		WHERE tenant_id = $1
 	`, tenantID))
@@ -52,9 +53,9 @@ func (r *Repository) UpsertSettings(ctx context.Context, tenantID string, input 
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO public_catalog_settings (
 			tenant_id, enabled, headline, description, cover_image_url, accent_color,
-			show_prices, show_resources, quote_requests_enabled,
+			show_prices, show_resources, quote_requests_enabled, web_chat_enabled,
 			contact_email, contact_phone, contact_address, terms_text, terms_version
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		ON CONFLICT (tenant_id) DO UPDATE SET
 			enabled = EXCLUDED.enabled,
 			headline = EXCLUDED.headline,
@@ -64,13 +65,14 @@ func (r *Repository) UpsertSettings(ctx context.Context, tenantID string, input 
 			show_prices = EXCLUDED.show_prices,
 			show_resources = EXCLUDED.show_resources,
 			quote_requests_enabled = EXCLUDED.quote_requests_enabled,
+			web_chat_enabled = EXCLUDED.web_chat_enabled,
 			contact_email = EXCLUDED.contact_email,
 			contact_phone = EXCLUDED.contact_phone,
 			contact_address = EXCLUDED.contact_address,
 			terms_text = EXCLUDED.terms_text,
 			terms_version = EXCLUDED.terms_version
 	`, tenantID, input.Enabled, input.Headline, input.Description, input.CoverImageURL,
-		input.AccentColor, input.ShowPrices, input.ShowResources, input.QuoteRequestsEnabled,
+		input.AccentColor, input.ShowPrices, input.ShowResources, input.QuoteRequestsEnabled, input.WebChatEnabled,
 		input.ContactEmail, input.ContactPhone, input.ContactAddress, input.TermsText, input.TermsVersion)
 	if err != nil {
 		return Settings{}, fmt.Errorf("upsert public catalog settings: %w", err)
@@ -101,7 +103,7 @@ func (r *Repository) ResolvePublicCatalog(ctx context.Context, tenantSlug string
 		SELECT
 			t.name, t.slug, t.logo_url, t.email, t.phone, t.address, t.currency, t.timezone,
 			s.tenant_id, s.enabled, s.headline, s.description, s.cover_image_url,
-			s.accent_color, s.show_prices, s.show_resources, s.quote_requests_enabled,
+			s.accent_color, s.show_prices, s.show_resources, s.quote_requests_enabled, s.web_chat_enabled,
 			s.contact_email, s.contact_phone, s.contact_address, s.terms_text, s.terms_version,
 			s.created_at, s.updated_at
 		FROM tenants t
@@ -110,7 +112,7 @@ func (r *Repository) ResolvePublicCatalog(ctx context.Context, tenantSlug string
 	`, tenantSlug).Scan(
 		&tenant.Name, &tenant.Slug, &tenant.LogoURL, &tenant.Email, &tenant.Phone, &tenant.Address, &tenant.Currency, &tenant.Timezone,
 		&settings.TenantID, &settings.Enabled, &settings.Headline, &settings.Description, &settings.CoverImageURL,
-		&settings.AccentColor, &settings.ShowPrices, &settings.ShowResources, &settings.QuoteRequestsEnabled,
+		&settings.AccentColor, &settings.ShowPrices, &settings.ShowResources, &settings.QuoteRequestsEnabled, &settings.WebChatEnabled,
 		&settings.ContactEmail, &settings.ContactPhone, &settings.ContactAddress, &settings.TermsText, &settings.TermsVersion,
 		&settings.CreatedAt, &settings.UpdatedAt,
 	)
@@ -740,7 +742,7 @@ func scanSettings(row rowScanner) (Settings, error) {
 	var item Settings
 	err := row.Scan(&item.TenantID, &item.Enabled, &item.Headline, &item.Description,
 		&item.CoverImageURL, &item.AccentColor, &item.ShowPrices, &item.ShowResources,
-		&item.QuoteRequestsEnabled, &item.ContactEmail, &item.ContactPhone,
+		&item.QuoteRequestsEnabled, &item.WebChatEnabled, &item.ContactEmail, &item.ContactPhone,
 		&item.ContactAddress, &item.TermsText, &item.TermsVersion, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
 		return Settings{}, fmt.Errorf("scan public catalog settings: %w", err)

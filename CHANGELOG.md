@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.19.0 — Omnichannel core and first-party web chat
+
+### Added
+
+- Adds an optional chat widget to every public-catalog route, with a responsive visitor form, resumable browser-tab session, message history, short polling, and tenant accent styling.
+- Adds tenant-scoped public endpoints to create a conversation, retrieve its visible messages, and add idempotent inbound messages.
+- Adds seven-day web-chat sessions, SHA-256 token hashes, consent and terms evidence, a honeypot, a 2,000-character message limit, and a 60-message-per-hour session limit.
+- Routes `WEB_CHAT` into the existing assistant inbox with explicit channel labels, visitor email context, response drafts, and authenticated human publication.
+- Adds migration `016_omnichannel_web_chat.sql` and an independent `web_chat_enabled` public-catalog setting.
+
+### Human-control and privacy boundary
+
+- Assistant drafts are never returned by the public session API. A visitor sees an outbound message only after an authorized user explicitly publishes it.
+- The raw 256-bit session token is returned once, kept only in the visitor tab's `sessionStorage`, sent through a dedicated header, and stored server-side only as a hash.
+- Public chat responses are non-cacheable, invalid credentials are indistinguishable from missing sessions, and disabling either the catalog or web chat makes the channel unavailable.
+- Web chat introduces no third-party messaging service, WebSocket infrastructure, production secret, IAM grant, Terraform resource, real Meta delivery, automatic quote approval, or inventory reservation.
+
 ## 0.18.1 — Meta application readiness and consent safety
 
 ### Added

@@ -1,8 +1,18 @@
-# RentStage Starter v0.18.1
+# RentStage Starter v0.19.0
 
-> **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox tipo WhatsApp que recomienda paquetes reales y prepara cotizaciones con aprobación humana.
+> **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox omnicanal con chat web propio, recomendaciones sobre paquetes reales y aprobación humana antes de cada respuesta.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## New in v0.19.0
+
+- Adds a first-party public web-chat widget to every published catalog route when the tenant enables it, without requiring Meta, a telephone number, a public webhook, or another messaging provider.
+- Adds tenant-scoped public session creation, retrieval, and message endpoints with seven-day sessions, hashed bearer tokens, idempotent client message IDs, rate limits, consent capture, a hidden anti-bot field, and no-store responses.
+- Routes web-chat conversations into the existing assistant inbox, labels the channel explicitly, creates response drafts, and keeps every draft hidden from the visitor until an authorized user presses **Publish to web chat**.
+- Publishes approved operator responses only to the matching visitor session and refreshes the browser widget through short polling. Raw session tokens remain in the visitor tab's `sessionStorage` and are never persisted by RentStage.
+- Extends public-catalog settings with an independent web-chat switch while preserving quote requests, Meta local isolation, and the rule that assistant activity never reserves inventory automatically.
+
+See [`docs/WEB-CHAT-0.19.0.md`](docs/WEB-CHAT-0.19.0.md), [`docs/UPGRADE-0.19.0.md`](docs/UPGRADE-0.19.0.md), and [`docs/VALIDATION-0.19.0.md`](docs/VALIDATION-0.19.0.md).
 
 ## New in v0.18.1
 

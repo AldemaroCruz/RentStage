@@ -19,6 +19,7 @@ func TestNormalizeSettings(t *testing.T) {
 		ShowPrices:           true,
 		ShowResources:        true,
 		QuoteRequestsEnabled: true,
+		WebChatEnabled:       true,
 		ContactEmail:         &email,
 		TermsText:            "  Autorizo contacto.  ",
 		TermsVersion:         " 2.1 ",
@@ -28,6 +29,9 @@ func TestNormalizeSettings(t *testing.T) {
 	}
 	if item.Headline != "Sonido para tu evento" || item.AccentColor != "#6A57F7" {
 		t.Fatalf("settings were not normalized: %+v", item)
+	}
+	if !item.WebChatEnabled {
+		t.Fatal("expected web chat setting to be preserved")
 	}
 	if item.CoverImageURL == nil || *item.CoverImageURL != "https://cdn.example.com/cover.jpg" {
 		t.Fatalf("cover URL was not normalized: %+v", item.CoverImageURL)
@@ -147,5 +151,28 @@ func TestValidEmailRejectsDisplayNameSyntax(t *testing.T) {
 	}
 	if validEmail("Customer <customer@example.com>") {
 		t.Fatal("display-name email syntax should not be persisted as a customer email")
+	}
+}
+
+func TestNormalizeSettingsDisablesWebChatWithCatalog(
+	t *testing.T,
+) {
+	item, fields := normalizeSettings(SettingsInput{
+		Enabled:        false,
+		WebChatEnabled: true,
+		AccentColor:    "#6657F7",
+		TermsText:      "Autorizo contacto.",
+	})
+
+	if len(fields) != 0 {
+		t.Fatalf(
+			"unexpected validation fields: %+v",
+			fields,
+		)
+	}
+	if item.WebChatEnabled {
+		t.Fatal(
+			"web chat must be disabled when the public catalog is disabled",
+		)
 	}
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import { PublicWebChat } from "@/components/PublicWebChat";
 import type { PublicCatalogViewSettings, PublicTenant } from "@/lib/types";
 
 function initials(value: string): string {
@@ -67,6 +68,8 @@ export function PublicCatalogShell({
           {settings.contact_address && <span>{settings.contact_address}</span>}
         </div>
       </footer>
+
+      {settings.web_chat_enabled && <PublicWebChat tenant={tenant} settings={settings} />}
     </div>
   );
 }

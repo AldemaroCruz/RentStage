@@ -21,6 +21,7 @@ type SettingsDraft = {
   show_prices: boolean;
   show_resources: boolean;
   quote_requests_enabled: boolean;
+  web_chat_enabled: boolean;
   contact_email: string;
   contact_phone: string;
   contact_address: string;
@@ -38,6 +39,7 @@ function settingsDraft(item: PublicCatalogSettings): SettingsDraft {
     show_prices: item.show_prices,
     show_resources: item.show_resources,
     quote_requests_enabled: item.quote_requests_enabled,
+    web_chat_enabled: item.web_chat_enabled,
     contact_email: item.contact_email || "",
     contact_phone: item.contact_phone || "",
     contact_address: item.contact_address || "",
@@ -226,7 +228,27 @@ export default function PublicCatalogSettingsPage() {
           <label className="switch-card"><input type="checkbox" checked={form.show_prices} disabled={!canManage} onChange={(event) => updateSettings("show_prices", event.target.checked)} /><span /><div><strong>Mostrar precios</strong><small>Incluye precios base y estimados en el catálogo.</small></div></label>
           <label className="switch-card"><input type="checkbox" checked={form.show_resources} disabled={!canManage} onChange={(event) => updateSettings("show_resources", event.target.checked)} /><span /><div><strong>Mostrar recursos</strong><small>Publica una sección adicional de equipo y servicios.</small></div></label>
           <label className="switch-card"><input type="checkbox" checked={form.quote_requests_enabled} disabled={!canManage} onChange={(event) => updateSettings("quote_requests_enabled", event.target.checked)} /><span /><div><strong>Recibir solicitudes</strong><small>Habilita el formulario público de cotización.</small></div></label>
-        </div>
+          <label className="switch-card">
+            <input
+              type="checkbox"
+              checked={form.web_chat_enabled}
+              disabled={!canManage || !form.enabled}
+              onChange={(event) =>
+                updateSettings(
+                  "web_chat_enabled",
+                  event.target.checked,
+                )
+              }
+            />
+            <span />
+            <div>
+              <strong>Activar chat web</strong>
+              <small>
+                Muestra el canal de conversación en el catálogo público.
+              </small>
+            </div>
+          </label>
+       </div>
         {canManage && <div className="form-actions"><button className="button button-primary" disabled={saving === "settings"}>{saving === "settings" ? "Guardando…" : "Guardar configuración"}</button></div>}
       </form>
 

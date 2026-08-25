@@ -25,11 +25,41 @@ function statusLabel(value: AssistantConversationSummary["status"]): string {
   return "Abierta";
 }
 
-function messageLabel(message: AssistantMessage, channel: AssistantConversationSummary["channel"]): string {
-  if (message.direction === "INBOUND") return channel === "WHATSAPP" ? "CLIENTE · WEBHOOK DE WHATSAPP" : "CLIENTE · MENSAJE SIMULADO";
-  if (message.status === "DRAFT") return "ASISTENTE · BORRADOR NO ENVIADO";
-  if (message.status === "APPROVED") return "EQUIPO · APROBADO Y PENDIENTE";
-  if (message.status === "SENT") return channel === "WHATSAPP" ? "EQUIPO · ACEPTADO POR META LOCAL" : "EQUIPO · ENTREGADO EN EL SIMULADOR";
+function channelLabel(
+  value: AssistantConversationSummary["channel"],
+): string {
+  if (value === "WEB_CHAT") return "Chat web";
+  if (value === "WHATSAPP") return "Meta local";
+  if (value === "INSTAGRAM") return "Instagram";
+  if (value === "MESSENGER") return "Messenger";
+  return "Canal demo";
+}
+
+function messageLabel(
+  message: AssistantMessage,
+  channel: AssistantConversationSummary["channel"],
+): string {
+  if (message.metadata.superseded === true) {
+    return "ASISTENTE · BORRADOR REEMPLAZADO";
+  }
+
+  if (message.direction === "INBOUND") {
+    if (channel === "WEB_CHAT") return "CLIENTE · CHAT WEB";
+    if (channel === "WHATSAPP") return "CLIENTE · WEBHOOK DE WHATSAPP";
+    return "CLIENTE · MENSAJE SIMULADO";
+  }
+
+  if (message.status === "DRAFT") {
+    return "ASISTENTE · BORRADOR NO ENVIADO";
+  }
+  if (message.status === "APPROVED") {
+    return "EQUIPO · APROBADO Y PENDIENTE";
+  }
+  if (message.status === "SENT") {
+    if (channel === "WEB_CHAT") return "EQUIPO · PUBLICADO EN CHAT WEB";
+    if (channel === "WHATSAPP") return "EQUIPO · ACEPTADO POR META LOCAL";
+    return "EQUIPO · ENTREGADO EN EL SIMULADOR";
+  }
   if (message.status === "DELIVERED") return "EQUIPO · ENTREGADO";
   if (message.status === "READ") return "EQUIPO · LEÍDO";
   if (message.status === "FAILED") return "EQUIPO · ENTREGA FALLIDA";
@@ -151,6 +181,7 @@ export default function AssistantPage() {
       ...emptyCustomerDraft,
       first_name: detail?.contact_name || "",
       phone: detail?.contact_phone || "",
+      email: detail?.contact_email || "",
     });
     setCustomerCreatorOpen(false);
   }, [detail?.id, detail?.updated_at, pendingMessage?.id, customers]);
@@ -254,7 +285,12 @@ export default function AssistantPage() {
           email: customerDraft.email || null,
           company_name: customerDraft.company_name || null,
           preferred_language: "es",
-          source: "WHATSAPP",
+          source:
+            detail.channel === "WEB_CHAT"
+              ? "WEB"
+              : detail.channel === "DEMO"
+                ? "MANUAL"
+                : "WHATSAPP",
           notes: `Creado desde la conversación ${detail.channel.toLowerCase()} ${detail.id}.`,
         }),
       });
@@ -307,9 +343,13 @@ export default function AssistantPage() {
       });
       setDetail(sent);
       setSendBody("");
-      setNotice(detail.channel === "WHATSAPP"
-        ? "Meta local aceptó la respuesta. El adaptador de desarrollo no contacta ningún teléfono real."
-        : "Respuesta entregada únicamente dentro del simulador. No se contactó ningún teléfono real.");
+      setNotice(
+        detail.channel === "WHATSAPP"
+          ? "Meta local aceptó la respuesta. El adaptador de desarrollo no contacta ningún teléfono real."
+          : detail.channel === "WEB_CHAT"
+            ? "Respuesta publicada en la sesión segura del chat web."
+            : "Respuesta entregada únicamente dentro del simulador. No se contactó ningún teléfono real.",
+      );
       await loadList(sent.id);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "No fue posible enviar la respuesta.");
@@ -400,18 +440,25 @@ export default function AssistantPage() {
     drafted: items.filter((item) => Boolean(item.quote_id)).length,
     demo: items.filter((item) => item.channel === "DEMO").length,
     whatsapp: items.filter((item) => item.channel === "WHATSAPP").length,
+    webChat: items.filter((item) => item.channel === "WEB_CHAT").length,
   }), [items]);
 
   return (
     <div className="page-stack assistant-page">
       <section className="assistant-hero">
         <div>
-          <p className="eyebrow">WHATSAPP SALES ASSISTANT · V0.18.1</p>
-          <h2>Convierte consultas en cotizaciones, con una persona al mando.</h2>
-          <p>Prueba el contrato de Meta de punta a punta en local, conserva la revisión humana y crea clientes sin contactar teléfonos reales.</p>
+          <p className="eyebrow">ASISTENTE OMNICANAL · V0.19.0</p>
+          <h2>Gestiona cada conversación con una persona al mando.</h2>
+          <p>
+            Centraliza chat web, Meta local y demostraciones, conserva la revisión
+            humana y prepara el camino para nuevos canales.
+          </p>
         </div>
         <div className="assistant-hero-actions">
-          <span className="assistant-provider-pill"><i /> {detail?.channel === "WHATSAPP" ? "META LOCAL" : "CANAL DEMO"}</span>
+          <span className="assistant-provider-pill">
+            <i />
+            {detail ? channelLabel(detail.channel).toUpperCase() : "INBOX OMNICANAL"}
+          </span>
           {canManage && <button className="button button-primary" onClick={() => setComposerOpen((value) => !value)}>{composerOpen ? "Cerrar simulador" : "Simular consulta"}</button>}
           {canManage && <button className="button button-secondary assistant-reset-button" onClick={resetDemo}>Reiniciar demo</button>}
         </div>
@@ -420,15 +467,15 @@ export default function AssistantPage() {
       <section className="assistant-boundary-strip">
         <strong>Control humano obligatorio</strong>
         <span>Cada borrador requiere que alguien pulse enviar.</span>
-        <span>DEMO y META LOCAL nunca contactan un teléfono real.</span>
+        <span>CHAT WEB publica únicamente en la sesión segura del visitante.</span>
         <span>Nunca reserva inventario automáticamente.</span>
       </section>
 
       <section className="assistant-boundary-strip">
-        <strong>Readiness: {readiness?.mode || "cargando"}</strong>
+        <strong>Conector Meta: {readiness?.mode || "cargando"}</strong>
         <span>Webhook firmado: {readiness?.signature_validation_configured ? "listo" : "pendiente"}.</span>
         <span>Salida local: {readiness?.local_delivery_available ? "habilitada" : "bloqueada"}.</span>
-        <span>Salida cloud: bloqueada en v0.18.1.</span>
+        <span>Salida cloud: bloqueada en v0.19.0.</span>
         <Link href="/privacy">Privacidad</Link><Link href="/data-deletion">Eliminar datos</Link><Link href="/support">Soporte</Link>
       </section>
 
@@ -452,7 +499,7 @@ export default function AssistantPage() {
       {(error || notice) && <div className={error ? "inline-error" : "assistant-notice"}>{error || notice}</div>}
 
       <section className="assistant-metrics">
-        <article><span>Conversaciones</span><strong>{items.length}</strong><small>{metrics.demo} demo · {metrics.whatsapp} Meta local</small></article>
+        <article><span>Conversaciones</span><strong>{items.length}</strong><small>{metrics.webChat} web · {metrics.whatsapp} Meta · {metrics.demo} demo</small></article>
         <article><span>Revisión humana</span><strong>{metrics.review}</strong><small>respuestas esperando aprobación</small></article>
         <article><span>Cotizaciones creadas</span><strong>{metrics.drafted}</strong><small>borrador, portal y decisión trazables</small></article>
       </section>
@@ -463,7 +510,7 @@ export default function AssistantPage() {
           {loading ? <div className="table-skeleton">Cargando conversaciones…</div> : items.length === 0 ? <div className="assistant-empty">Usa “Simular consulta” para iniciar.</div> : items.map((item) => (
             <button key={item.id} className={`assistant-conversation-row ${detail?.id === item.id ? "active" : ""}`} onClick={() => void selectConversation(item.id)}>
               <span className="assistant-contact-avatar">{item.contact_name.slice(0, 2).toUpperCase()}</span>
-              <span><strong>{item.contact_name}</strong><small>{item.last_message}</small><em>{statusLabel(item.status)}</em></span>
+              <span><strong>{item.contact_name}</strong><small>{item.last_message}</small><em>{channelLabel(item.channel)} · {statusLabel(item.status)}</em></span>
               <time>{new Date(item.last_message_at).toLocaleDateString("es-SV", { day: "2-digit", month: "short" })}</time>
             </button>
           ))}
@@ -473,11 +520,11 @@ export default function AssistantPage() {
           {!detail ? <div className="assistant-empty large">Selecciona o simula una conversación.</div> : <>
             <header className="assistant-chat-header">
               <div className="assistant-contact-avatar">{detail.contact_name.slice(0, 2).toUpperCase()}</div>
-              <div><strong>{detail.contact_name}</strong><span>{detail.contact_phone} · {detail.customer_name || "contacto sin vincular"}</span></div>
+              <div><strong>{detail.contact_name}</strong><span>{detail.channel === "WEB_CHAT" ? detail.contact_email || "visitante web" : detail.contact_phone || "sin teléfono"} · {detail.customer_name || "contacto sin vincular"}</span></div>
               <em className={`assistant-status ${detail.status.toLowerCase()}`}>{statusLabel(detail.status)}</em>
             </header>
             <div className="assistant-chat-scroll" ref={chatScrollRef}>
-              <div className="assistant-chat-day">HOY · DEMOSTRACIÓN</div>
+              <div className="assistant-chat-day">HOY · {channelLabel(detail.channel).toUpperCase()}</div>
               {detail.messages.map((message) => (
                 <article key={message.id} className={`assistant-bubble ${message.direction === "OUTBOUND" ? "outbound" : "inbound"} ${message.status === "DRAFT" ? "draft" : ""}`}>
                   <small>{messageLabel(message, detail.channel)}</small>
@@ -493,8 +540,8 @@ export default function AssistantPage() {
             {canManage && <div className="assistant-chat-composer">
               <label><span>{pendingMessage ? "Revisar borrador antes de enviar" : "Responder como miembro del equipo"}</span><textarea value={sendBody} onChange={(event) => setSendBody(event.target.value)} placeholder="Escribe una respuesta para el cliente…" /></label>
               <div className="assistant-composer-actions">
-                <small>{detail.channel === "WHATSAPP" ? "La entrega usa el Graph API local y no sale a Internet." : "La entrega ocurre solamente dentro de este chat demo."}</small>
-                <button className="button button-primary" onClick={() => void sendMessage()} disabled={working || !sendBody.trim()}>{working ? "Procesando…" : detail.channel === "WHATSAPP" ? "Enviar por Meta local" : "Enviar respuesta demo"}</button>
+                <small>{detail.channel === "WHATSAPP" ? "La entrega usa el Graph API local y no sale a Internet." : detail.channel === "WEB_CHAT" ? "La respuesta será visible en la sesión segura del visitante." : "La entrega ocurre solamente dentro de este chat demo."}</small>
+                <button className="button button-primary" onClick={() => void sendMessage()} disabled={working || !sendBody.trim()}>{working ? "Procesando…" : detail.channel === "WHATSAPP" ? "Enviar por Meta local" : detail.channel === "WEB_CHAT" ? "Publicar en chat web" : "Enviar respuesta demo"}</button>
               </div>
               {detail.channel === "DEMO" && <button className="assistant-incoming-toggle" onClick={() => setIncomingOpen((value) => !value)}>{incomingOpen ? "Cancelar mensaje del cliente" : "+ Simular respuesta del cliente"}</button>}
               {detail.channel === "DEMO" && incomingOpen && <form className="assistant-incoming-form" onSubmit={receiveDemo}>
