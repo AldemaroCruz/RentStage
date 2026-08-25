@@ -2,6 +2,11 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
+import {
+  classifyPublicWebChatFailure,
+  pendingPublicWebChatMessage,
+  type PendingPublicWebChatMessage,
+} from "@/lib/public-web-chat";
 import type {
   PublicCatalogViewSettings,
   PublicTenant,
@@ -72,6 +77,8 @@ export function PublicWebChat({
     website: "",
   });
   const messageListRef = useRef<HTMLDivElement>(null);
+  const operationInFlightRef = useRef(false);
+  const pendingMessageRef = useRef<PendingPublicWebChatMessage | null>(null);
 
   const getSession = useCallback(async (sessionID: string, sessionToken: string) => {
     return api<PublicWebChatSession>(
@@ -133,6 +140,9 @@ export function PublicWebChat({
 
   async function createSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (operationInFlightRef.current) return;
+    operationInFlightRef.current = true;
     setWorking(true);
     setError("");
     try {
@@ -160,34 +170,74 @@ export function PublicWebChat({
     } catch (reason) {
       setError(operationError(reason, "No fue posible iniciar la conversación."));
     } finally {
+      operationInFlightRef.current = false;
       setWorking(false);
     }
   }
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!session || !token || !body.trim()) return;
+
+    if (operationInFlightRef.current || !session || !token) return;
+
+    const pending = pendingPublicWebChatMessage(
+      pendingMessageRef.current,
+      body,
+      () => crypto.randomUUID(),
+    );
+    if (!pending) return;
+
+    pendingMessageRef.current = pending;
+    operationInFlightRef.current = true;
     setWorking(true);
     setError("");
+
     try {
       const result = await api<PublicWebChatSession>(
         `/api/v1/public/chat/${encodeURIComponent(tenant.slug)}/sessions/${encodeURIComponent(session.id)}/messages`,
         {
           method: "POST",
           headers: { "X-RentStage-Chat-Token": token },
-          body: JSON.stringify({ body, client_message_id: crypto.randomUUID() }),
+          body: JSON.stringify({
+            body: pending.body,
+            client_message_id: pending.clientMessageId,
+          }),
         },
       );
+
+      pendingMessageRef.current = null;
       setSession(result);
       setBody("");
     } catch (reason) {
-      setError(operationError(reason, "No fue posible enviar el mensaje."));
+      const failure = classifyPublicWebChatFailure(
+        reason instanceof ApiError ? reason.status : undefined,
+      );
+
+      if (failure === "terminal") {
+        forgetStoredChat(tenant.slug);
+        pendingMessageRef.current = null;
+        setSession(null);
+        setToken("");
+        setBody("");
+        setDraft((value) => ({
+          ...value,
+          contact_name: value.contact_name || session.contact_name,
+          message: pending.body,
+        }));
+        setError(
+          "La conversación ya no está disponible. Inicia una nueva para continuar.",
+        );
+      } else {
+        setError(operationError(reason, "No fue posible enviar el mensaje."));
+      }
     } finally {
+      operationInFlightRef.current = false;
       setWorking(false);
     }
-  }
+}
 
   function startNewConversation() {
+    pendingMessageRef.current = null;
     forgetStoredChat(tenant.slug);
     setSession(null);
     setToken("");
