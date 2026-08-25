@@ -48,7 +48,7 @@ function operationError(reason: unknown, fallback: string): string {
     if (reason.status === 410) return "Esta conversación venció. Inicia una nueva para continuar.";
     if (reason.status === 429) return "Has enviado varios mensajes. Intenta nuevamente más tarde.";
   }
-  return reason instanceof Error ? reason.message : fallback;
+  return fallback;
 }
 
 function messageTime(value: string): string {
@@ -188,7 +188,7 @@ export function PublicWebChat({
         document.visibilityState === "hidden" ||
         operationInFlightRef.current
       ) {
-        schedule(PUBLIC_WEB_CHAT_POLL_INTERVAL_MS);
+        schedule(0);
         return;
       }
 
@@ -474,7 +474,7 @@ export function PublicWebChat({
             <>
               <div className="public-web-chat-messages" ref={messageListRef} aria-live="polite">
                 <div className="public-web-chat-intro">
-                  Esta conversación permanece disponible durante siete días en este navegador.
+                  Esta conversación permanece disponible hasta siete días mientras mantengas esta pestaña.
                 </div>
                 {session.messages.map((message) => {
                   const fromVisitor = message.direction === "INBOUND";
