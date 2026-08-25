@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   classifyPublicWebChatFailure,
   pendingPublicWebChatMessage,
+  publicWebChatPollDelay,
 } from "./public-web-chat.ts";
 
 test("creates a stable client message identity from normalized content", () => {
@@ -80,4 +81,17 @@ test("classifies rate limits separately from temporary failures", () => {
   assert.equal(classifyPublicWebChatFailure(429), "rate_limited");
   assert.equal(classifyPublicWebChatFailure(500), "temporary");
   assert.equal(classifyPublicWebChatFailure(undefined), "temporary");
+});
+
+test("polling backs off after failures and remains capped", () => {
+  assert.equal(publicWebChatPollDelay(0), 4_000);
+  assert.equal(publicWebChatPollDelay(1), 8_000);
+  assert.equal(publicWebChatPollDelay(2), 16_000);
+  assert.equal(publicWebChatPollDelay(3), 30_000);
+  assert.equal(publicWebChatPollDelay(50), 30_000);
+});
+
+test("polling normalizes invalid failure counters", () => {
+  assert.equal(publicWebChatPollDelay(-1), 4_000);
+  assert.equal(publicWebChatPollDelay(Number.NaN), 4_000);
 });

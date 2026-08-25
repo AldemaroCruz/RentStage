@@ -39,3 +39,19 @@ export function classifyPublicWebChatFailure(
 
   return "temporary";
 }
+
+export const PUBLIC_WEB_CHAT_POLL_INTERVAL_MS = 4_000;
+export const PUBLIC_WEB_CHAT_MAX_POLL_INTERVAL_MS = 30_000;
+
+export function publicWebChatPollDelay(
+  consecutiveFailures: number,
+): number {
+  const failures = Number.isFinite(consecutiveFailures)
+    ? Math.min(3, Math.max(0, Math.floor(consecutiveFailures)))
+    : 0;
+
+  return Math.min(
+    PUBLIC_WEB_CHAT_POLL_INTERVAL_MS * 2 ** failures,
+    PUBLIC_WEB_CHAT_MAX_POLL_INTERVAL_MS,
+  );
+}

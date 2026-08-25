@@ -5,6 +5,8 @@ import { api, ApiError } from "@/lib/api";
 import {
   classifyPublicWebChatFailure,
   pendingPublicWebChatMessage,
+  PUBLIC_WEB_CHAT_POLL_INTERVAL_MS,
+  publicWebChatPollDelay,
   type PendingPublicWebChatMessage,
 } from "@/lib/public-web-chat";
 import type {
@@ -69,6 +71,7 @@ export function PublicWebChat({
   const [session, setSession] = useState<PublicWebChatSession | null>(null);
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
+  const [connectionNotice, setConnectionNotice] = useState("");
   const [body, setBody] = useState("");
   const [draft, setDraft] = useState({
     contact_name: "",
@@ -81,12 +84,22 @@ export function PublicWebChat({
   const operationInFlightRef = useRef(false);
   const pendingMessageRef = useRef<PendingPublicWebChatMessage | null>(null);
 
-  const getSession = useCallback(async (sessionID: string, sessionToken: string) => {
-    return api<PublicWebChatSession>(
-      `/api/v1/public/chat/${encodeURIComponent(tenant.slug)}/sessions/${encodeURIComponent(sessionID)}`,
-      { headers: { "X-RentStage-Chat-Token": sessionToken } },
-    );
-  }, [tenant.slug]);
+  const getSession = useCallback(
+    async (
+      sessionID: string,
+      sessionToken: string,
+      signal?: AbortSignal,
+    ) => {
+      return api<PublicWebChatSession>(
+        `/api/v1/public/chat/${encodeURIComponent(tenant.slug)}/sessions/${encodeURIComponent(sessionID)}`,
+        {
+          headers: { "X-RentStage-Chat-Token": sessionToken },
+          signal,
+        },
+      );
+    },
+    [tenant.slug],
+  );
 
   useEffect(() => {
     let active = true;
@@ -141,21 +154,129 @@ export function PublicWebChat({
 
   useEffect(() => {
     if (!open || !session || !token || session.status !== "ACTIVE") return;
+
     const sessionID = session.id;
-    const interval = window.setInterval(() => {
-      getSession(sessionID, token)
-        .then(setSession)
-        .catch((reason) => {
-          if (reason instanceof ApiError && [404, 410].includes(reason.status)) {
-            forgetStoredChat(tenant.slug);
-            setSession(null);
-            setToken("");
-            setError("La conversación ya no está disponible. Puedes iniciar una nueva.");
-          }
-        });
-    }, 4_000);
-    return () => window.clearInterval(interval);
-  }, [getSession, open, session, tenant.slug, token]);
+    let cancelled = false;
+    let terminal = false;
+    let inFlight = false;
+    let consecutiveFailures = 0;
+    let timer: number | null = null;
+    let requestController: AbortController | null = null;
+
+    setConnectionNotice("");
+
+    function clearTimer() {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    function schedule(delay: number) {
+      if (cancelled || terminal) return;
+
+      clearTimer();
+      timer = window.setTimeout(() => {
+        void poll();
+      }, delay);
+    }
+
+    async function poll() {
+      if (cancelled || terminal || inFlight) return;
+
+      if (
+        document.visibilityState === "hidden" ||
+        operationInFlightRef.current
+      ) {
+        schedule(PUBLIC_WEB_CHAT_POLL_INTERVAL_MS);
+        return;
+      }
+
+      inFlight = true;
+      requestController = new AbortController();
+      let nextDelay = PUBLIC_WEB_CHAT_POLL_INTERVAL_MS;
+
+      try {
+        const item = await getSession(
+          sessionID,
+          token,
+          requestController.signal,
+        );
+
+        if (cancelled) return;
+
+        consecutiveFailures = 0;
+        setSession(item);
+        setConnectionNotice("");
+      } catch (reason) {
+        if (cancelled) return;
+
+        const failure = classifyPublicWebChatFailure(
+          reason instanceof ApiError ? reason.status : undefined,
+        );
+
+        if (failure === "terminal") {
+          terminal = true;
+          forgetStoredChat(tenant.slug);
+          pendingMessageRef.current = null;
+          setRestoreTarget(null);
+          setSession(null);
+          setToken("");
+          setConnectionNotice("");
+          setError(
+            "La conversación ya no está disponible. Puedes iniciar una nueva.",
+          );
+          return;
+        }
+
+        consecutiveFailures += 1;
+        nextDelay = publicWebChatPollDelay(consecutiveFailures);
+        setConnectionNotice(
+          "Conexión inestable. Reintentaremos automáticamente.",
+        );
+      } finally {
+        inFlight = false;
+        requestController = null;
+
+        if (!cancelled && !terminal) {
+          schedule(nextDelay);
+        }
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (
+        document.visibilityState !== "visible" ||
+        cancelled ||
+        terminal
+      ) {
+        return;
+      }
+
+      clearTimer();
+      void poll();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    schedule(PUBLIC_WEB_CHAT_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimer();
+      requestController?.abort();
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
+  }, [
+    getSession,
+    open,
+    session?.id,
+    session?.status,
+    tenant.slug,
+    token,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -203,7 +324,7 @@ export function PublicWebChat({
       operationInFlightRef.current = false;
       setRestoring(false);
     }
-}
+  }
 
   async function createSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -285,6 +406,7 @@ export function PublicWebChat({
         pendingMessageRef.current = null;
         setSession(null);
         setToken("");
+        setConnectionNotice("");
         setBody("");
         setDraft((value) => ({
           ...value,
@@ -310,6 +432,7 @@ export function PublicWebChat({
     setToken("");
     setBody("");
     setRestoreTarget(null);
+    setConnectionNotice("");
     setError("");
   }
 
@@ -366,6 +489,11 @@ export function PublicWebChat({
               </div>
               {session.status === "ACTIVE" ? (
                 <form className="public-web-chat-composer" onSubmit={sendMessage}>
+                  {connectionNotice && (
+                    <p className="public-web-chat-notice" role="status">
+                      {connectionNotice}
+                    </p>
+                  )}
                   {error && <p className="public-web-chat-error">{error}</p>}
                   <label>
                     <span className="sr-only">Escribe tu mensaje</span>
