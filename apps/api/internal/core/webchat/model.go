@@ -5,8 +5,10 @@ import (
 	"time"
 )
 
+// #nosec G101 -- This constant is a public HTTP header name, not a credential.
+const SessionTokenHeader = "X-RentStage-Chat-Token"
+
 const (
-	SessionTokenHeader     = "X-RentStage-Chat-Token"
 	SessionDuration        = 7 * 24 * time.Hour
 	MaximumMessageLength   = 2000
 	MaximumMessagesPerHour = 60
