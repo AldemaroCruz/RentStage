@@ -64,6 +64,7 @@ export function PublicWebChat({
 }) {
   const [open, setOpen] = useState(false);
   const [restoring, setRestoring] = useState(true);
+  const [restoreTarget, setRestoreTarget] = useState<StoredChat | null>(null);
   const [working, setWorking] = useState(false);
   const [session, setSession] = useState<PublicWebChatSession | null>(null);
   const [token, setToken] = useState("");
@@ -90,26 +91,52 @@ export function PublicWebChat({
   useEffect(() => {
     let active = true;
     const stored = readStoredChat(tenant.slug);
+
     if (!stored) {
       setRestoring(false);
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
 
+    setRestoreTarget(stored);
     setToken(stored.token);
+
     getSession(stored.session_id, stored.token)
       .then((item) => {
-        if (active) setSession(item);
-      })
-      .catch(() => {
         if (!active) return;
-        forgetStoredChat(tenant.slug);
-        setToken("");
+        setSession(item);
+        setRestoreTarget(null);
+        setError("");
+      })
+      .catch((reason) => {
+        if (!active) return;
+
+        const failure = classifyPublicWebChatFailure(
+          reason instanceof ApiError ? reason.status : undefined,
+        );
+
+        if (failure === "terminal") {
+          forgetStoredChat(tenant.slug);
+          setRestoreTarget(null);
+          setToken("");
+          setError(
+            "La conversación anterior ya no está disponible. Puedes iniciar una nueva.",
+          );
+          return;
+        }
+
+        setError(
+          "No fue posible recuperar la conversación. Revisa tu conexión e intenta nuevamente.",
+        );
       })
       .finally(() => {
         if (active) setRestoring(false);
       });
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [getSession, tenant.slug]);
 
   useEffect(() => {
@@ -137,6 +164,46 @@ export function PublicWebChat({
       behavior: "smooth",
     });
   }, [open, session?.messages.length]);
+
+  async function retryRestore() {
+    if (!restoreTarget || operationInFlightRef.current) return;
+
+    operationInFlightRef.current = true;
+    setRestoring(true);
+    setError("");
+
+    try {
+      const item = await getSession(
+        restoreTarget.session_id,
+        restoreTarget.token,
+      );
+
+      setSession(item);
+      setToken(restoreTarget.token);
+      setRestoreTarget(null);
+    } catch (reason) {
+      const failure = classifyPublicWebChatFailure(
+        reason instanceof ApiError ? reason.status : undefined,
+      );
+
+      if (failure === "terminal") {
+        forgetStoredChat(tenant.slug);
+        setRestoreTarget(null);
+        setSession(null);
+        setToken("");
+        setError(
+          "La conversación anterior ya no está disponible. Puedes iniciar una nueva.",
+        );
+      } else {
+        setError(
+          "No fue posible recuperar la conversación. Revisa tu conexión e intenta nuevamente.",
+        );
+      }
+    } finally {
+      operationInFlightRef.current = false;
+      setRestoring(false);
+    }
+}
 
   async function createSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -242,6 +309,7 @@ export function PublicWebChat({
     setSession(null);
     setToken("");
     setBody("");
+    setRestoreTarget(null);
     setError("");
   }
 
@@ -257,7 +325,29 @@ export function PublicWebChat({
 
           {restoring ? (
             <div className="public-web-chat-state"><span className="public-loader" /><p>Recuperando conversación…</p></div>
-          ) : session ? (
+          ) : restoreTarget ? (
+            <div className="public-web-chat-ended">
+              <p>
+                {error ||
+                  "No fue posible recuperar la conversación guardada."}
+              </p>
+
+              <button
+                type="button"
+                onClick={retryRestore}
+                disabled={working}
+              >
+                Reintentar
+              </button>
+
+              <button
+                type="button"
+                onClick={startNewConversation}
+                disabled={working}
+              >
+                Iniciar nueva conversación
+              </button>
+            </div> ) : session ? (
             <>
               <div className="public-web-chat-messages" ref={messageListRef} aria-live="polite">
                 <div className="public-web-chat-intro">
