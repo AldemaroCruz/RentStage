@@ -38,6 +38,7 @@ type Settings struct {
 	ShowPrices           bool      `json:"show_prices"`
 	ShowResources        bool      `json:"show_resources"`
 	QuoteRequestsEnabled bool      `json:"quote_requests_enabled"`
+	WebChatEnabled       bool      `json:"web_chat_enabled"`
 	ContactEmail         *string   `json:"contact_email,omitempty"`
 	ContactPhone         *string   `json:"contact_phone,omitempty"`
 	ContactAddress       *string   `json:"contact_address,omitempty"`
@@ -56,6 +57,7 @@ type SettingsInput struct {
 	ShowPrices           bool    `json:"show_prices"`
 	ShowResources        bool    `json:"show_resources"`
 	QuoteRequestsEnabled bool    `json:"quote_requests_enabled"`
+	WebChatEnabled       bool    `json:"web_chat_enabled"`
 	ContactEmail         *string `json:"contact_email"`
 	ContactPhone         *string `json:"contact_phone"`
 	ContactAddress       *string `json:"contact_address"`
@@ -139,6 +141,7 @@ type PublicSettings struct {
 	ShowPrices           bool    `json:"show_prices"`
 	ShowResources        bool    `json:"show_resources"`
 	QuoteRequestsEnabled bool    `json:"quote_requests_enabled"`
+	WebChatEnabled       bool    `json:"web_chat_enabled"`
 	ContactEmail         *string `json:"contact_email,omitempty"`
 	ContactPhone         *string `json:"contact_phone,omitempty"`
 	ContactAddress       *string `json:"contact_address,omitempty"`
@@ -329,6 +332,7 @@ type normalizedSettings struct {
 	ShowPrices           bool
 	ShowResources        bool
 	QuoteRequestsEnabled bool
+	WebChatEnabled       bool
 	ContactEmail         *string
 	ContactPhone         *string
 	ContactAddress       *string

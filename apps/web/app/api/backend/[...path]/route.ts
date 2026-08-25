@@ -25,6 +25,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
     "X-CSRF-Token",
     "X-Request-ID",
     "X-RentStage-Quote-Token",
+    "X-RentStage-Chat-Token",
     "Origin",
     "User-Agent",
   ]) {

@@ -26,6 +26,7 @@ const conversationSummarySelect = `
 		CASE WHEN customer.id IS NULL THEN NULL ELSE TRIM(customer.first_name || ' ' || customer.last_name) END,
 		conversation.contact_name,
 		conversation.contact_phone,
+		conversation.contact_email,
 		conversation.status,
 		conversation.consent_status,
 		conversation.service_window_expires_at,
@@ -517,7 +518,7 @@ func scanConversationSummary(row rowScanner) (ConversationSummary, error) {
 	var item ConversationSummary
 	if err := row.Scan(
 		&item.ID, &item.Channel, &item.CustomerID, &item.CustomerName,
-		&item.ContactName, &item.ContactPhone, &item.Status,
+		&item.ContactName, &item.ContactPhone, &item.ContactEmail, &item.Status,
 		&item.ConsentStatus, &item.ServiceWindowExpiresAt, &item.Summary, &item.LastMessage,
 		&item.LastMessageAt, &item.QuoteID, &item.QuoteNumber,
 		&item.CreatedAt, &item.UpdatedAt,

@@ -283,11 +283,12 @@ export type AssistantConversationStatus = "OPEN" | "HUMAN_REVIEW" | "QUOTE_DRAFT
 
 export type AssistantConversationSummary = {
   id: string;
-  channel: "DEMO" | "WHATSAPP";
+  channel: "DEMO" | "WHATSAPP" | "WEB_CHAT" | "INSTAGRAM" | "MESSENGER";
   customer_id?: string;
   customer_name?: string;
   contact_name: string;
   contact_phone: string;
+  contact_email?: string;
   status: AssistantConversationStatus;
   consent_status: "DEMO" | "OPTED_IN" | "UNKNOWN" | "OPTED_OUT";
   service_window_expires_at?: string;
@@ -304,7 +305,7 @@ export type AssistantMessage = {
   id: string;
   direction: "INBOUND" | "OUTBOUND";
   sender_type: "CUSTOMER" | "ASSISTANT" | "USER" | "SYSTEM";
-  provider: "DEMO" | "WHATSAPP";
+  provider: "DEMO" | "WHATSAPP" | "WEB_CHAT" | "INSTAGRAM" | "MESSENGER";
   body: string;
   status: "RECEIVED" | "DRAFT" | "APPROVED" | "SENT" | "DELIVERED" | "READ" | "FAILED";
   metadata: Record<string, unknown>;
@@ -788,6 +789,7 @@ export type PublicCatalogSettings = {
   show_prices: boolean;
   show_resources: boolean;
   quote_requests_enabled: boolean;
+  web_chat_enabled: boolean;
   contact_email?: string;
   contact_phone?: string;
   contact_address?: string;
@@ -891,6 +893,28 @@ export type PublicCatalog = {
   settings: PublicCatalogViewSettings;
   packages: PublicPackageSummary[];
   resources: PublicResourceItem[];
+};
+
+export type PublicWebChatMessage = {
+  id: string;
+  direction: "INBOUND" | "OUTBOUND";
+  sender_type: "CUSTOMER" | "ASSISTANT" | "USER";
+  body: string;
+  status: "RECEIVED" | "DRAFT" | "APPROVED" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+  created_at: string;
+};
+
+export type PublicWebChatSession = {
+  id: string;
+  status: "ACTIVE" | "CLOSED" | "EXPIRED";
+  contact_name: string;
+  expires_at: string;
+  messages: PublicWebChatMessage[];
+};
+
+export type PublicWebChatCreateResult = {
+  session: PublicWebChatSession;
+  token: string;
 };
 
 export type PublicPackageResponse = {

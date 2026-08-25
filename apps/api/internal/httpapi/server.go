@@ -28,6 +28,7 @@ import (
 	"github.com/rentstage/rentstage/apps/api/internal/core/quoteportal"
 	"github.com/rentstage/rentstage/apps/api/internal/core/reservation"
 	"github.com/rentstage/rentstage/apps/api/internal/core/tenant"
+	"github.com/rentstage/rentstage/apps/api/internal/core/webchat"
 	metaintegration "github.com/rentstage/rentstage/apps/api/internal/integrations/meta"
 	"github.com/rentstage/rentstage/apps/api/internal/webutil"
 )
@@ -73,6 +74,8 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 		cfg.WebBaseURL, cfg.PublicRequestFingerprintSalt,
 	)
 	assistantRepository := assistant.NewRepository(pool)
+	webChatRepository := webchat.NewRepository(pool)
+	webChatService := webchat.NewService(webChatRepository)
 	var whatsAppSender assistant.WhatsAppSender
 	if cfg.MetaWhatsAppMode == "local_mock" && cfg.MetaOutboundEnabled {
 		whatsAppSender = metaintegration.NewClient(
@@ -101,7 +104,8 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	availabilityHandler := availability.NewHandler(availabilityService)
 	packageHandler := packages.NewHandler(packageRepository, packageService)
 	assistantHandler := assistant.NewHandler(assistantRepository, assistantService)
-	publicCatalogHandler := publiccatalog.NewHandler(publicCatalogService)
+	webChatHandler := webchat.NewHandler(webChatService, logger)
+	publicCatalogHandler := publiccatalog.NewHandler(publicCatalogService, logger)
 	auditHandler := audit.NewHandler(auditRepository)
 	customerHandler := customer.NewHandler(customerRepository, customerService)
 	quoteHandler := quote.NewHandler(quoteRepository, quoteService)
@@ -138,6 +142,18 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	mux.HandleFunc("GET /api/v1/public/catalogs/{tenantSlug}/resources/{resourceSlug}", publicCatalogHandler.PublicResource)
 	mux.HandleFunc("POST /api/v1/public/catalogs/{tenantSlug}/availability", publicCatalogHandler.PublicAvailability)
 	mux.HandleFunc("POST /api/v1/public/catalogs/{tenantSlug}/quote-requests", publicCatalogHandler.SubmitQuoteRequest)
+	mux.HandleFunc(
+		"POST /api/v1/public/chat/{tenantSlug}/sessions",
+		webChatHandler.CreateSession,
+	)
+	mux.HandleFunc(
+		"GET /api/v1/public/chat/{tenantSlug}/sessions/{sessionID}",
+		webChatHandler.GetSession,
+	)
+	mux.HandleFunc(
+		"POST /api/v1/public/chat/{tenantSlug}/sessions/{sessionID}/messages",
+		webChatHandler.SendMessage,
+	)
 	mux.HandleFunc("GET /api/v1/public/quote-portal", quotePortalHandler.PublicView)
 	mux.HandleFunc("POST /api/v1/public/quote-portal/accept", quotePortalHandler.Accept)
 	mux.HandleFunc("POST /api/v1/public/quote-portal/reject", quotePortalHandler.Reject)

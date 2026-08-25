@@ -2,6 +2,7 @@ package publiccatalog
 
 import (
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -14,10 +15,11 @@ import (
 
 type Handler struct {
 	service *Service
+	logger  *slog.Logger
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, logger *slog.Logger) *Handler {
+	return &Handler{service: service, logger: logger}
 }
 
 func (h *Handler) PublicCatalog(w http.ResponseWriter, r *http.Request) {
@@ -218,7 +220,20 @@ func (h *Handler) writeFailure(
 	case errors.As(err, &resourceNotFound):
 		webutil.WriteError(w, r, http.StatusConflict, "public_package_unavailable", "A package component is no longer available.")
 	case err != nil:
-		webutil.WriteError(w, r, http.StatusInternalServerError, fallbackCode, fallbackMessage)
+		h.logger.ErrorContext(
+			r.Context(),
+			"public catalog operation failed",
+			"request_id", webutil.RequestID(r.Context()),
+			"error_code", fallbackCode,
+			"error", err,
+		)
+		webutil.WriteError(
+			w,
+			r,
+			http.StatusInternalServerError,
+			fallbackCode,
+			fallbackMessage,
+		)
 	default:
 		return false
 	}

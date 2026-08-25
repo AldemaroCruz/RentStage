@@ -92,6 +92,7 @@ func (s *Service) UpdateSettings(ctx context.Context, tenantID string, input Set
 		"show_prices":            item.ShowPrices,
 		"show_resources":         item.ShowResources,
 		"quote_requests_enabled": item.QuoteRequestsEnabled,
+		"web_chat_enabled":       item.WebChatEnabled,
 		"terms_version":          item.TermsVersion,
 	})
 	return item, nil, nil
@@ -608,7 +609,8 @@ func normalizeSettings(input SettingsInput) (normalizedSettings, map[string]stri
 		ShowResources: input.ShowResources, QuoteRequestsEnabled: input.QuoteRequestsEnabled,
 		ContactEmail: cleanOptional(input.ContactEmail), ContactPhone: cleanOptional(input.ContactPhone),
 		ContactAddress: cleanOptional(input.ContactAddress), TermsText: strings.TrimSpace(input.TermsText),
-		TermsVersion: strings.TrimSpace(input.TermsVersion),
+		TermsVersion:   strings.TrimSpace(input.TermsVersion),
+		WebChatEnabled: input.WebChatEnabled,
 	}
 	if result.AccentColor == "" {
 		result.AccentColor = "#6657F7"
@@ -650,6 +652,9 @@ func normalizeSettings(input SettingsInput) (normalizedSettings, map[string]stri
 	if len(result.TermsVersion) > 40 {
 		fields["terms_version"] = "Terms version must be 40 characters or fewer."
 	}
+	if !result.Enabled {
+		result.WebChatEnabled = false
+	}
 	return result, fields
 }
 
@@ -657,7 +662,7 @@ func publicSettings(item Settings) PublicSettings {
 	return PublicSettings{
 		Headline: item.Headline, Description: item.Description, CoverImageURL: item.CoverImageURL,
 		AccentColor: item.AccentColor, ShowPrices: item.ShowPrices, ShowResources: item.ShowResources,
-		QuoteRequestsEnabled: item.QuoteRequestsEnabled, ContactEmail: item.ContactEmail,
+		QuoteRequestsEnabled: item.QuoteRequestsEnabled, WebChatEnabled: item.WebChatEnabled, ContactEmail: item.ContactEmail,
 		ContactPhone: item.ContactPhone, ContactAddress: item.ContactAddress,
 		TermsText: item.TermsText, TermsVersion: item.TermsVersion,
 	}
