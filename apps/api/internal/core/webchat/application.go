@@ -10,13 +10,32 @@ import (
 )
 
 type Service struct {
-	repository *Repository
-	now        func() time.Time
+	repository            *Repository
+	draftProvider         DraftProvider
+	fallbackDraftProvider DraftProvider
+	now                   func() time.Time
 }
 
 func NewService(repository *Repository) *Service {
+	return NewServiceWithDraftProvider(
+		repository,
+		NewRulesDraftProvider(),
+	)
+}
+
+func NewServiceWithDraftProvider(
+	repository *Repository,
+	draftProvider DraftProvider,
+) *Service {
+	fallbackProvider := NewRulesDraftProvider()
+	if draftProvider == nil {
+		draftProvider = fallbackProvider
+	}
+
 	return &Service{
-		repository: repository,
+		repository:            repository,
+		draftProvider:         draftProvider,
+		fallbackDraftProvider: fallbackProvider,
 		now: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -127,6 +146,42 @@ func (s *Service) SendMessage(
 	}
 
 	return item, nil, nil
+}
+
+func (s *Service) generateDraft(
+	ctx context.Context,
+	request DraftRequest,
+) (DraftResult, error) {
+	result, err := s.draftProvider.GenerateDraft(ctx, request)
+	if err == nil {
+		normalized, normalizeErr := normalizeDraft(result)
+		if normalizeErr == nil {
+			return normalized, nil
+		}
+	}
+
+	fallback, err := s.fallbackDraftProvider.GenerateDraft(
+		ctx,
+		request,
+	)
+	if err != nil {
+		return DraftResult{}, fmt.Errorf(
+			"generate web chat fallback draft: %w",
+			err,
+		)
+	}
+
+	fallback, err = normalizeDraft(fallback)
+	if err != nil {
+		return DraftResult{}, fmt.Errorf(
+			"normalize web chat fallback draft: %w",
+			err,
+		)
+	}
+
+	fallback.UsedFallback = true
+
+	return fallback, nil
 }
 
 func normalizeSessionAccess(
