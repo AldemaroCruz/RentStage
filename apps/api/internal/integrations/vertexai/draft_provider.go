@@ -39,6 +39,12 @@ Reglas obligatorias:
 - Incluye references con cada paquete o recurso del catálogo que sustente la respuesta.
 - Cada referencia debe usar kind PACKAGE o RESOURCE y copiar exactamente el name de catalog_context.
 - No incluyas referencias que no sean necesarias para sustentar el texto. Usa una lista vacía si no citas el catálogo.
+- sales_brief es un resumen privado para el revisor humano, no una acción ni una cotización.
+- Cada sales_brief.signals.value debe copiar literalmente un fragmento de customer_message o de un previous_messages con role CUSTOMER.
+- Nunca uses mensajes con role TEAM como evidencia de una señal comercial.
+- Usa solamente las señales EVENT_TYPE, EVENT_DATE, LOCATION, GUEST_COUNT y BUDGET, sin inventar valores ausentes.
+- missing_fields puede contener solamente esos mismos valores y debe indicar datos que conviene confirmar.
+- Si missing_fields no está vacío, next_question debe contener una sola pregunta breve para obtener uno de esos datos. Si está vacío, next_question debe ser una cadena vacía.
 - Devuelve exclusivamente el objeto JSON solicitado.`
 )
 
@@ -251,6 +257,7 @@ func (p *DraftProvider) GenerateDraft(
 		Engine:              engineName,
 		Model:               p.model,
 		GroundingReferences: decoded.References,
+		SalesBrief:          decoded.SalesBrief,
 	}, nil
 }
 
@@ -325,6 +332,23 @@ func generateContentConfig(
 	maximumReferences := int64(
 		webchat.MaximumDraftGroundingReferences,
 	)
+	maximumSignals := int64(webchat.MaximumDraftSalesSignals)
+	maximumMissingFields := int64(
+		webchat.MaximumDraftSalesMissingFields,
+	)
+	maximumSignalLength := int64(
+		webchat.MaximumDraftSalesSignalRunes,
+	)
+	maximumQuestionLength := int64(
+		webchat.MaximumDraftNextQuestionRunes,
+	)
+	salesFields := []string{
+		string(webchat.DraftSalesSignalEventType),
+		string(webchat.DraftSalesSignalEventDate),
+		string(webchat.DraftSalesSignalLocation),
+		string(webchat.DraftSalesSignalGuestCount),
+		string(webchat.DraftSalesSignalBudget),
+	}
 
 	return &genai.GenerateContentConfig{
 		SystemInstruction: genai.NewContentFromText(
@@ -370,9 +394,73 @@ func generateContentConfig(
 						PropertyOrdering: []string{"kind", "name"},
 					},
 				},
+				"sales_brief": {
+					Type:        genai.TypeObject,
+					Description: "Resumen comercial privado y trazable para revisión humana.",
+					Properties: map[string]*genai.Schema{
+						"signals": {
+							Type:        genai.TypeArray,
+							Description: "Datos comerciales copiados literalmente de mensajes CUSTOMER.",
+							MinItems:    &minimumReferences,
+							MaxItems:    &maximumSignals,
+							Items: &genai.Schema{
+								Type: genai.TypeObject,
+								Properties: map[string]*genai.Schema{
+									"kind": {
+										Type:   genai.TypeString,
+										Format: "enum",
+										Enum:   salesFields,
+									},
+									"value": {
+										Type:        genai.TypeString,
+										Description: "Fragmento literal de un mensaje CUSTOMER.",
+										MinLength:   &minLength,
+										MaxLength:   &maximumSignalLength,
+									},
+								},
+								Required:         []string{"kind", "value"},
+								PropertyOrdering: []string{"kind", "value"},
+							},
+						},
+						"missing_fields": {
+							Type:        genai.TypeArray,
+							Description: "Datos que conviene confirmar antes de cotizar.",
+							MinItems:    &minimumReferences,
+							MaxItems:    &maximumMissingFields,
+							Items: &genai.Schema{
+								Type:   genai.TypeString,
+								Format: "enum",
+								Enum:   salesFields,
+							},
+						},
+						"next_question": {
+							Type:        genai.TypeString,
+							Description: "Una pregunta breve para obtener un dato faltante, o cadena vacía.",
+							MaxLength:   &maximumQuestionLength,
+						},
+					},
+					Required: []string{
+						"signals",
+						"missing_fields",
+						"next_question",
+					},
+					PropertyOrdering: []string{
+						"signals",
+						"missing_fields",
+						"next_question",
+					},
+				},
 			},
-			Required:         []string{"reply", "references"},
-			PropertyOrdering: []string{"reply", "references"},
+			Required: []string{
+				"reply",
+				"references",
+				"sales_brief",
+			},
+			PropertyOrdering: []string{
+				"reply",
+				"references",
+				"sales_brief",
+			},
 		},
 	}
 }
@@ -380,6 +468,7 @@ func generateContentConfig(
 type decodedDraftResponse struct {
 	Reply      string
 	References []webchat.DraftGroundingReference
+	SalesBrief webchat.DraftSalesBrief
 }
 
 func decodeDraftResponse(
@@ -388,6 +477,7 @@ func decodeDraftResponse(
 	var payload struct {
 		Reply      string                             `json:"reply"`
 		References *[]webchat.DraftGroundingReference `json:"references"`
+		SalesBrief *webchat.DraftSalesBrief           `json:"sales_brief"`
 	}
 
 	decoder := json.NewDecoder(
@@ -412,9 +502,11 @@ func decodeDraftResponse(
 	}
 
 	payload.Reply = strings.TrimSpace(payload.Reply)
-	if payload.Reply == "" || payload.References == nil {
+	if payload.Reply == "" ||
+		payload.References == nil ||
+		payload.SalesBrief == nil {
 		return decodedDraftResponse{}, fmt.Errorf(
-			"%w: reply and references are required",
+			"%w: reply, references, and sales_brief are required",
 			ErrInvalidResponse,
 		)
 	}
@@ -422,5 +514,6 @@ func decodeDraftResponse(
 	return decodedDraftResponse{
 		Reply:      payload.Reply,
 		References: *payload.References,
+		SalesBrief: *payload.SalesBrief,
 	}, nil
 }

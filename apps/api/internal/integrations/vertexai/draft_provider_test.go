@@ -101,7 +101,7 @@ func (g *stubGenerator) Generate(
 
 func TestDraftProviderGeneratesStructuredDraft(t *testing.T) {
 	generator := &stubGenerator{
-		response: `{"reply":"Gracias por la información. El equipo confirmará los detalles.","references":[{"kind":"PACKAGE","name":"Paquete Fiesta"}]}`,
+		response: `{"reply":"Gracias por la información. El equipo confirmará los detalles.","references":[{"kind":"PACKAGE","name":"Paquete Fiesta"}],"sales_brief":{"signals":[{"kind":"GUEST_COUNT","value":"150 personas"}],"missing_fields":["EVENT_DATE"],"next_question":"¿Qué fecha tiene prevista para el evento?"}}`,
 	}
 	provider := newDraftProvider(
 		generator,
@@ -155,6 +155,19 @@ func TestDraftProviderGeneratesStructuredDraft(t *testing.T) {
 			"unexpected grounding references: %#v",
 			result.GroundingReferences,
 		)
+	}
+	if len(result.SalesBrief.Signals) != 1 ||
+		result.SalesBrief.Signals[0].Kind !=
+			webchat.DraftSalesSignalGuestCount ||
+		result.SalesBrief.Signals[0].Value != "150 personas" {
+		t.Fatalf("unexpected sales brief signals: %#v", result.SalesBrief)
+	}
+	if len(result.SalesBrief.MissingFields) != 1 ||
+		result.SalesBrief.MissingFields[0] !=
+			webchat.DraftSalesMissingEventDate ||
+		result.SalesBrief.NextQuestion !=
+			"¿Qué fecha tiene prevista para el evento?" {
+		t.Fatalf("unexpected sales brief: %#v", result.SalesBrief)
 	}
 	if generator.calls != 1 {
 		t.Fatalf("unexpected generator calls: %d", generator.calls)
@@ -442,6 +455,8 @@ func TestGenerationConfigRequiresStructuredJSON(t *testing.T) {
 		"Nunca afirmes que un artículo está disponible",
 		"no menciones ni infieras su precio",
 		"copiar exactamente el name de catalog_context",
+		"copiar literalmente un fragmento",
+		"Nunca uses mensajes con role TEAM",
 	} {
 		if !strings.Contains(systemInstruction, rule) {
 			t.Fatalf("system instruction is missing %q", rule)
@@ -471,5 +486,27 @@ func TestGenerationConfigRequiresStructuredJSON(t *testing.T) {
 	if referencesSchema.Items.Properties["kind"] == nil ||
 		referencesSchema.Items.Properties["name"] == nil {
 		t.Fatal("grounding reference fields are required")
+	}
+
+	salesBriefSchema := config.ResponseSchema.Properties["sales_brief"]
+	if salesBriefSchema == nil {
+		t.Fatal("sales brief schema is required")
+	}
+	signalsSchema := salesBriefSchema.Properties["signals"]
+	if signalsSchema == nil || signalsSchema.Items == nil ||
+		signalsSchema.MaxItems == nil ||
+		*signalsSchema.MaxItems !=
+			int64(webchat.MaximumDraftSalesSignals) {
+		t.Fatalf("unexpected sales signal schema: %#v", signalsSchema)
+	}
+	missingSchema := salesBriefSchema.Properties["missing_fields"]
+	if missingSchema == nil || missingSchema.Items == nil ||
+		missingSchema.MaxItems == nil ||
+		*missingSchema.MaxItems !=
+			int64(webchat.MaximumDraftSalesMissingFields) {
+		t.Fatalf("unexpected missing field schema: %#v", missingSchema)
+	}
+	if salesBriefSchema.Properties["next_question"] == nil {
+		t.Fatal("next question schema is required")
 	}
 }

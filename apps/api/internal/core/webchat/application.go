@@ -210,6 +210,13 @@ func (s *Service) generateDraft(
 					request.SalesContext,
 				)
 			if normalizeErr == nil {
+				normalized.SalesBrief, normalizeErr =
+					NormalizeDraftSalesBrief(
+						normalized.SalesBrief,
+						request,
+					)
+			}
+			if normalizeErr == nil {
 				return normalized, nil
 			}
 		}
@@ -240,6 +247,7 @@ func (s *Service) generateDraft(
 	fallback.UsedFallback = true
 	fallback.FallbackReason = fallbackReason
 	fallback.GroundingReferences = []DraftGroundingReference{}
+	fallback.SalesBrief = emptyDraftSalesBrief()
 
 	return fallback, nil
 }

@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { api, ApiError } from "@/lib/api";
 import { assistantDraftEvidence } from "@/lib/assistant-draft-evidence";
+import { assistantDraftSalesBrief } from "@/lib/assistant-sales-brief";
 import { assistantDraftProvenance } from "@/lib/assistant-draft-provenance";
 import { formatCurrency, formatDateTime, formatQuoteNumber, formatReservationNumber } from "@/lib/format";
 import type {
@@ -141,6 +142,11 @@ export default function AssistantPage() {
 
   const pendingEvidence = useMemo(
     () => assistantDraftEvidence(pendingMessage),
+    [pendingMessage],
+  );
+
+  const pendingSalesBrief = useMemo(
+    () => assistantDraftSalesBrief(pendingMessage),
     [pendingMessage],
   );
 
@@ -565,6 +571,24 @@ export default function AssistantPage() {
 
         <aside className="assistant-review">
           <div className="assistant-column-heading"><div><p className="eyebrow">HUMAN IN THE LOOP</p><h3>Propuesta comercial</h3></div></div>
+          {pendingSalesBrief && <section className="assistant-sales-brief-card" aria-label="Resumen comercial extraído para revisión humana">
+            <span>OPORTUNIDAD · BORRADOR PRIVADO</span>
+            <h3>Resumen de la conversación</h3>
+            {pendingSalesBrief.signals.length > 0 && <dl>{pendingSalesBrief.signals.map((signal) => (
+              <div key={signal.kind}><dt>{signal.label}</dt><dd>{signal.value}</dd></div>
+            ))}</dl>}
+            {pendingSalesBrief.missingFields.length > 0 && <div className="assistant-sales-missing">
+              <strong>Datos por confirmar</strong>
+              <ul>{pendingSalesBrief.missingFields.map((field) => (
+                <li key={field.kind}>{field.label}</li>
+              ))}</ul>
+            </div>}
+            {pendingSalesBrief.nextQuestion && <div className="assistant-sales-next-question">
+              <strong>Pregunta sugerida</strong>
+              <p>{pendingSalesBrief.nextQuestion}</p>
+            </div>}
+            <small>Extraído únicamente de mensajes del cliente. Verifica los datos antes de responder o cotizar.</small>
+          </section>}
           {pendingEvidence.length > 0 && <section className="assistant-grounding-card" aria-label="Evidencia del catálogo para revisión humana">
             <span>EVIDENCIA VALIDADA</span>
             <h3>Referencias del catálogo</h3>
@@ -573,7 +597,7 @@ export default function AssistantPage() {
             ))}</ul>
             <p>Estas referencias fueron verificadas contra el catálogo público enviado a la IA. No confirman disponibilidad ni constituyen una cotización.</p>
           </section>}
-          {!detail?.proposal ? pendingEvidence.length === 0 ? <div className="assistant-empty">No hay una propuesta seleccionada.</div> : null : <>
+          {!detail?.proposal ? pendingEvidence.length === 0 && !pendingSalesBrief ? <div className="assistant-empty">No hay una propuesta seleccionada.</div> : null : <>
             <div className="assistant-analysis-card">
               <span className="assistant-engine">✨ {detail.proposal.provider}</span>
               <h3>{detail.proposal.package_name}</h3>

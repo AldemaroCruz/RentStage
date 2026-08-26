@@ -2272,6 +2272,20 @@ p {
 .assistant-grounding-card li em { color: var(--primary); font-size: 8px; font-style: normal; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
 .assistant-grounding-card li strong { font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
 .assistant-grounding-card > p { color: var(--ink-soft); font-size: 9px; line-height: 1.5; }
+.assistant-sales-brief-card { display: grid; gap: 11px; margin: 18px; padding: 16px; border: 1px solid #bfe6d8; border-radius: 13px; background: linear-gradient(145deg, #f8fffc, #eefaf6); }
+.assistant-sales-brief-card > span { color: #167259; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
+.assistant-sales-brief-card h3 { margin: 0; font-size: 15px; }
+.assistant-sales-brief-card dl { display: grid; gap: 0; margin: 0; }
+.assistant-sales-brief-card dl div { display: grid; grid-template-columns: 95px minmax(0, 1fr); gap: 9px; padding: 8px 0; border-top: 1px solid #d8ede6; }
+.assistant-sales-brief-card dt { color: var(--muted); font-size: 9px; }
+.assistant-sales-brief-card dd { margin: 0; font-size: 10px; font-weight: 800; overflow-wrap: anywhere; }
+.assistant-sales-missing { display: grid; gap: 7px; padding-top: 10px; border-top: 1px solid #d8ede6; }
+.assistant-sales-missing > strong, .assistant-sales-next-question > strong { color: #17634f; font-size: 9px; }
+.assistant-sales-missing ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.assistant-sales-missing li { padding: 4px 7px; color: #6e541c; border: 1px solid #ead59b; border-radius: 999px; background: #fff7dc; font-size: 8px; font-weight: 800; }
+.assistant-sales-next-question { display: grid; gap: 5px; padding: 10px; border-radius: 9px; background: rgba(26, 126, 96, .08); }
+.assistant-sales-next-question p { font-size: 10px; line-height: 1.5; }
+.assistant-sales-brief-card > small { color: var(--ink-soft); font-size: 8px; line-height: 1.5; }
 .assistant-customer-panel { display: grid; gap: 11px; margin: 0 18px 18px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fbfbfe; }
 .assistant-customer-panel > div:first-child { display: grid; gap: 3px; }
 .assistant-customer-panel > div:first-child span { color: var(--primary); font-size: 8px; font-weight: 900; letter-spacing: .08em; }
@@ -3166,7 +3180,7 @@ p {
   background: var(--surface);
 }
 
-:root[data-theme="dark"] :is(.assistant-boundary-strip, .assistant-metrics article, .assistant-inbox, .assistant-review, .assistant-conversation-row, .assistant-chat-header, .assistant-chat-composer, .assistant-chat-composer textarea, .assistant-bubble, .assistant-customer-panel, .assistant-analysis-card, .assistant-grounding-card, .assistant-portal-panel) {
+:root[data-theme="dark"] :is(.assistant-boundary-strip, .assistant-metrics article, .assistant-inbox, .assistant-review, .assistant-conversation-row, .assistant-chat-header, .assistant-chat-composer, .assistant-chat-composer textarea, .assistant-bubble, .assistant-customer-panel, .assistant-analysis-card, .assistant-grounding-card, .assistant-sales-brief-card, .assistant-portal-panel) {
   color: var(--ink);
   border-color: var(--line);
   background: var(--surface);
@@ -3183,6 +3197,9 @@ p {
 :root[data-theme="dark"] .assistant-draft-origin.rules { color: #bdebdc; border-color: #286955; background: #173f34; }
 :root[data-theme="dark"] .assistant-draft-origin.fallback { color: #ffd8aa; border-color: #845a2e; background: #4a321d; }
 :root[data-theme="dark"] .assistant-grounding-card li { border-color: var(--line); background: var(--surface-soft); }
+:root[data-theme="dark"] .assistant-sales-brief-card dl div, :root[data-theme="dark"] .assistant-sales-missing { border-color: var(--line); }
+:root[data-theme="dark"] .assistant-sales-missing li { color: #f0d993; border-color: #6d5a26; background: #3f351a; }
+:root[data-theme="dark"] .assistant-sales-next-question { background: rgba(57, 187, 145, .11); }
 :root[data-theme="dark"] .assistant-quote-created { border-color: #265845; background: #17392f; }
 :root[data-theme="dark"] .assistant-approval-note { color: var(--ink-soft); background: var(--surface-soft); }
 :root[data-theme="dark"] .assistant-portal-panel dl div { background: rgba(140, 130, 255, .12); }

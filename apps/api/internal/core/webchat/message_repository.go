@@ -505,6 +505,10 @@ func (r *Repository) AddInboundMessage(
 			if err != nil {
 				return SessionView{}, err
 			}
+			salesBrief, err := encodeDraftSalesBrief(responseDraft.SalesBrief)
+			if err != nil {
+				return SessionView{}, err
+			}
 
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO assistant_messages (
@@ -519,10 +523,11 @@ func (r *Repository) AddInboundMessage(
 						'used_fallback', $6::boolean,
 						'fallback_reason', NULLIF($7::text, ''),
 						'grounding_references', $8::jsonb,
+						'sales_brief', $9::jsonb,
 						'human_approval_required', TRUE,
-						'source_message_id', $9::text
+						'source_message_id', $10::text
 					)),
-					$10
+					$11
 				)
 			`,
 				tenantID,
@@ -533,6 +538,7 @@ func (r *Repository) AddInboundMessage(
 				responseDraft.UsedFallback,
 				string(responseDraft.FallbackReason),
 				groundingReferences,
+				salesBrief,
 				input.ClientMessageID,
 				now.Add(time.Microsecond),
 			); err != nil {

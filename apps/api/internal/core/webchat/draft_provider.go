@@ -98,6 +98,7 @@ type DraftResult struct {
 	UsedFallback        bool
 	FallbackReason      DraftFallbackReason
 	GroundingReferences []DraftGroundingReference
+	SalesBrief          DraftSalesBrief
 }
 
 type DraftProviderFailure struct {
@@ -554,9 +555,10 @@ func (*RulesDraftProvider) GenerateDraft(
 	}
 
 	return DraftResult{
-		Body:   body,
-		Engine: "WEB_CHAT_RULES",
-		Model:  "DETERMINISTIC_V1",
+		Body:       body,
+		Engine:     "WEB_CHAT_RULES",
+		Model:      "DETERMINISTIC_V1",
+		SalesBrief: emptyDraftSalesBrief(),
 	}, nil
 }
 
