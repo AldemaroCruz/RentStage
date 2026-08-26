@@ -3,12 +3,47 @@ package vertexai
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/rentstage/rentstage/apps/api/internal/core/webchat"
 )
+
+func TestNormalizeMaxOutputTokens(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   int
+		want    int32
+		wantErr bool
+	}{
+		{name: "minimum", value: minimumOutputTokens, want: 64},
+		{name: "maximum", value: maximumOutputTokens, want: 2048},
+		{name: "below minimum", value: minimumOutputTokens - 1, wantErr: true},
+		{name: "above maximum", value: maximumOutputTokens + 1, wantErr: true},
+		{name: "platform maximum", value: math.MaxInt, wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := normalizeMaxOutputTokens(test.value)
+			if test.wantErr {
+				if !errors.Is(err, ErrInvalidResponse) {
+					t.Fatalf("expected invalid response error, got %v", err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("normalize token limit: %v", err)
+			}
+			if got != test.want {
+				t.Fatalf("normalized token limit = %d, want %d", got, test.want)
+			}
+		})
+	}
+}
 
 type stubGenerator struct {
 	response            string

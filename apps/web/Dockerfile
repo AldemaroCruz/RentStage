@@ -1,10 +1,13 @@
 # syntax=docker/dockerfile:1.7
-FROM node:24-alpine AS deps
+FROM node:24-alpine AS base
+RUN apk upgrade --no-cache libcrypto3 libssl3
+
+FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-FROM node:24-alpine AS build
+FROM base AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-rentstage
@@ -25,7 +28,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run test:ci
 
-FROM node:24-alpine AS runner
+FROM base AS runner
 WORKDIR /app
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
