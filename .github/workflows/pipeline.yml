@@ -380,6 +380,9 @@ jobs:
           CLOUD_SQL_CONNECTION: ${{ steps.staging-config.outputs.cloud_sql_connection }}
           RENTSTAGE_VERSION: ${{ steps.staging-config.outputs.version }}
           STAGING_SEED_DEMO_DATA: ${{ vars.STAGING_SEED_DEMO_DATA }}
+          ASSISTANT_AI_MODE: ${{ vars.STAGING_ASSISTANT_AI_MODE || 'rules' }}
+          ASSISTANT_AI_LOCATION: ${{ vars.STAGING_ASSISTANT_AI_LOCATION || vars.GCP_REGION }}
+          ASSISTANT_AI_MODEL: ${{ vars.STAGING_ASSISTANT_AI_MODEL || 'gemini-2.5-flash' }}
           API_IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/rentstage-api:${{ github.sha }}
           WEB_IMAGE: ${{ steps.build-web.outputs.image }}
         run: bash scripts/gcp/deploy-staging.sh

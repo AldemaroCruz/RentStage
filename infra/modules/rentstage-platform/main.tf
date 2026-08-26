@@ -5,6 +5,7 @@ locals {
   resource_prefix                = "rentstage-${var.environment}"
 
   required_services = toset([
+    "aiplatform.googleapis.com",
     "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudresourcemanager.googleapis.com",
@@ -279,6 +280,7 @@ resource "google_secret_manager_secret" "meta" {
 locals {
   api_project_roles = toset(concat(
     [
+      "roles/aiplatform.user",
       "roles/cloudsql.client",
       "roles/logging.logWriter",
       "roles/serviceusage.serviceUsageConsumer",
