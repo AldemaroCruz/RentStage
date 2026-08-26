@@ -84,7 +84,7 @@ test-api:
 
 # Requires Node.js 24.
 test-web:
-	cd apps/web && npm install --no-audit --no-fund && npm run test:ci
+	cd apps/web && npm ci --no-audit --no-fund && npm run test:ci
 
 security:
 	bash scripts/ci/check-sensitive-files.sh
