@@ -69,6 +69,13 @@ func (s *Service) CreateSession(
 	}
 
 	now := s.now()
+	salesContext, err := s.repository.LoadDraftSalesContext(
+		ctx,
+		configuration.TenantID,
+	)
+	if err != nil {
+		return CreateSessionResult{}, nil, err
+	}
 
 	draft, err := s.generateDraft(
 		ctx,
@@ -78,6 +85,7 @@ func (s *Service) CreateSession(
 			TenantSlug:      configuration.TenantSlug,
 			ContactName:     normalized.ContactName,
 			CustomerMessage: normalized.Message,
+			SalesContext:    salesContext,
 		},
 	)
 	if err != nil {

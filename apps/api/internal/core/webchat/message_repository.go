@@ -183,6 +183,15 @@ func (r *Repository) PrepareInboundDraft(
 	}
 	preparation.Request.PreviousMessages = previousMessages
 
+	salesContext, err := r.LoadDraftSalesContext(
+		ctx,
+		tenantID,
+	)
+	if err != nil {
+		return inboundDraftPreparation{}, err
+	}
+	preparation.Request.SalesContext = salesContext
+
 	return preparation, nil
 }
 
