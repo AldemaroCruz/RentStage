@@ -230,16 +230,29 @@ func (p *DraftProvider) GenerateDraft(
 func buildPrompt(
 	request webchat.DraftRequest,
 ) (string, error) {
+	previousMessages, err := webchat.NormalizeDraftConversation(
+		request.PreviousMessages,
+	)
+	if err != nil {
+		return "", fmt.Errorf(
+			"%w: invalid conversation context: %v",
+			ErrInvalidResponse,
+			err,
+		)
+	}
+
 	payload := struct {
-		DraftKind       webchat.DraftKind `json:"draft_kind"`
-		TenantName      string            `json:"tenant_name"`
-		ContactName     string            `json:"contact_name"`
-		CustomerMessage string            `json:"customer_message"`
+		DraftKind        webchat.DraftKind                  `json:"draft_kind"`
+		TenantName       string                             `json:"tenant_name"`
+		ContactName      string                             `json:"contact_name"`
+		PreviousMessages []webchat.DraftConversationMessage `json:"previous_messages"`
+		CustomerMessage  string                             `json:"customer_message"`
 	}{
-		DraftKind:       request.Kind,
-		TenantName:      strings.TrimSpace(request.TenantName),
-		ContactName:     strings.TrimSpace(request.ContactName),
-		CustomerMessage: strings.TrimSpace(request.CustomerMessage),
+		DraftKind:        request.Kind,
+		TenantName:       strings.TrimSpace(request.TenantName),
+		ContactName:      strings.TrimSpace(request.ContactName),
+		PreviousMessages: previousMessages,
+		CustomerMessage:  strings.TrimSpace(request.CustomerMessage),
 	}
 
 	encoded, err := json.Marshal(payload)

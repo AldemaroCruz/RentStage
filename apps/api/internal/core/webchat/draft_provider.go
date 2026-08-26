@@ -10,19 +10,33 @@ import (
 
 type DraftKind string
 
+type DraftMessageRole string
+
 const (
 	DraftKindInitial  DraftKind = "INITIAL"
 	DraftKindFollowUp DraftKind = "FOLLOW_UP"
+
+	DraftMessageRoleCustomer DraftMessageRole = "CUSTOMER"
+	DraftMessageRoleTeam     DraftMessageRole = "TEAM"
+
+	MaximumDraftContextMessages = 12
+	MaximumDraftContextRunes    = 8000
 )
 
 var ErrInvalidDraft = errors.New("web chat draft is invalid")
 
 type DraftRequest struct {
-	Kind            DraftKind
-	TenantName      string
-	TenantSlug      string
-	ContactName     string
-	CustomerMessage string
+	Kind             DraftKind
+	TenantName       string
+	TenantSlug       string
+	ContactName      string
+	CustomerMessage  string
+	PreviousMessages []DraftConversationMessage
+}
+
+type DraftConversationMessage struct {
+	Role DraftMessageRole `json:"role"`
+	Body string           `json:"body"`
 }
 
 type DraftResult struct {
@@ -43,6 +57,62 @@ type RulesDraftProvider struct{}
 
 func NewRulesDraftProvider() *RulesDraftProvider {
 	return &RulesDraftProvider{}
+}
+
+func NormalizeDraftConversation(
+	messages []DraftConversationMessage,
+) ([]DraftConversationMessage, error) {
+	if len(messages) > MaximumDraftContextMessages {
+		return nil, fmt.Errorf(
+			"%w: conversation context exceeds %d messages",
+			ErrInvalidDraft,
+			MaximumDraftContextMessages,
+		)
+	}
+
+	normalized := make(
+		[]DraftConversationMessage,
+		0,
+		len(messages),
+	)
+	totalRunes := 0
+
+	for _, message := range messages {
+		message.Body = strings.TrimSpace(message.Body)
+
+		switch message.Role {
+		case DraftMessageRoleCustomer,
+			DraftMessageRoleTeam:
+		default:
+			return nil, fmt.Errorf(
+				"%w: unsupported conversation role %q",
+				ErrInvalidDraft,
+				message.Role,
+			)
+		}
+
+		messageRunes := utf8.RuneCountInString(message.Body)
+		if messageRunes == 0 ||
+			messageRunes > MaximumMessageLength {
+			return nil, fmt.Errorf(
+				"%w: invalid conversation message body",
+				ErrInvalidDraft,
+			)
+		}
+
+		totalRunes += messageRunes
+		if totalRunes > MaximumDraftContextRunes {
+			return nil, fmt.Errorf(
+				"%w: conversation context exceeds %d runes",
+				ErrInvalidDraft,
+				MaximumDraftContextRunes,
+			)
+		}
+
+		normalized = append(normalized, message)
+	}
+
+	return normalized, nil
 }
 
 func (*RulesDraftProvider) GenerateDraft(

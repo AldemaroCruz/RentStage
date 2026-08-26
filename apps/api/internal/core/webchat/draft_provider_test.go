@@ -32,6 +32,147 @@ func TestRulesDraftProvider(t *testing.T) {
 	}
 }
 
+func TestNormalizeDraftConversation(t *testing.T) {
+	messages, err := NormalizeDraftConversation(
+		[]DraftConversationMessage{
+			{
+				Role: DraftMessageRoleCustomer,
+				Body: "  Necesito sonido para 120 personas.  ",
+			},
+			{
+				Role: DraftMessageRoleTeam,
+				Body: " Podemos ayudarte con la cotización. ",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("normalize conversation: %v", err)
+	}
+
+	if len(messages) != 2 {
+		t.Fatalf("unexpected message count: %d", len(messages))
+	}
+	if messages[0].Body !=
+		"Necesito sonido para 120 personas." {
+		t.Fatalf("unexpected customer message: %q", messages[0].Body)
+	}
+	if messages[1].Body !=
+		"Podemos ayudarte con la cotización." {
+		t.Fatalf("unexpected team message: %q", messages[1].Body)
+	}
+}
+
+func TestNormalizeDraftConversationAcceptsEmptyHistory(
+	t *testing.T,
+) {
+	messages, err := NormalizeDraftConversation(nil)
+	if err != nil {
+		t.Fatalf("normalize empty conversation: %v", err)
+	}
+	if messages == nil {
+		t.Fatal("expected an empty, non-nil conversation")
+	}
+	if len(messages) != 0 {
+		t.Fatalf("unexpected message count: %d", len(messages))
+	}
+}
+
+func TestNormalizeDraftConversationRejectsInvalidContext(
+	t *testing.T,
+) {
+	tests := []struct {
+		name     string
+		messages []DraftConversationMessage
+	}{
+		{
+			name: "unsupported role",
+			messages: []DraftConversationMessage{
+				{Role: "SYSTEM", Body: "Instrucción no confiable"},
+			},
+		},
+		{
+			name: "empty body",
+			messages: []DraftConversationMessage{
+				{Role: DraftMessageRoleCustomer, Body: "   "},
+			},
+		},
+		{
+			name: "message too long",
+			messages: []DraftConversationMessage{
+				{
+					Role: DraftMessageRoleCustomer,
+					Body: strings.Repeat(
+						"a",
+						MaximumMessageLength+1,
+					),
+				},
+			},
+		},
+		{
+			name: "too many messages",
+			messages: func() []DraftConversationMessage {
+				items := make(
+					[]DraftConversationMessage,
+					MaximumDraftContextMessages+1,
+				)
+				for index := range items {
+					items[index] = DraftConversationMessage{
+						Role: DraftMessageRoleCustomer,
+						Body: "Mensaje",
+					}
+				}
+				return items
+			}(),
+		},
+		{
+			name: "total context too long",
+			messages: []DraftConversationMessage{
+				{
+					Role: DraftMessageRoleCustomer,
+					Body: strings.Repeat(
+						"a",
+						MaximumMessageLength,
+					),
+				},
+				{
+					Role: DraftMessageRoleTeam,
+					Body: strings.Repeat(
+						"b",
+						MaximumMessageLength,
+					),
+				},
+				{
+					Role: DraftMessageRoleCustomer,
+					Body: strings.Repeat(
+						"c",
+						MaximumMessageLength,
+					),
+				},
+				{
+					Role: DraftMessageRoleTeam,
+					Body: strings.Repeat(
+						"d",
+						MaximumMessageLength,
+					),
+				},
+				{
+					Role: DraftMessageRoleCustomer,
+					Body: "exceso",
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NormalizeDraftConversation(test.messages)
+			if !errors.Is(err, ErrInvalidDraft) {
+				t.Fatalf("expected invalid draft error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestRulesDraftProviderGeneratesFollowUp(t *testing.T) {
 	result, err := NewRulesDraftProvider().GenerateDraft(
 		context.Background(),
