@@ -19,6 +19,8 @@
 ### Build and compatibility
 
 - Adds and enforces `package-lock.json` through local, Docker, CI, security-audit, and version-consistency workflows.
+- Validates the Vertex output-token bound before its `int32` conversion and covers both supported limits plus platform-sized overflow input.
+- Upgrades the Alpine OpenSSL runtime libraries used by every web image stage to the patched repository versions during the build.
 - Keeps migration ordering at `016_omnichannel_web_chat.sql`; no database migration or public chat API change is required.
 - Keeps `rules` as the default runtime mode so existing installations need no cloud credential or Vertex AI access.
 

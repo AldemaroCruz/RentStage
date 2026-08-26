@@ -14,7 +14,9 @@ import (
 )
 
 const (
-	engineName = "VERTEX_AI"
+	engineName          = "VERTEX_AI"
+	minimumOutputTokens = 64
+	maximumOutputTokens = 2048
 
 	systemInstruction = `Eres un asistente que prepara borradores privados en español para una empresa de alquiler de equipo para eventos.
 
@@ -82,12 +84,18 @@ func NewDraftProvider(
 	if projectID == "" ||
 		location == "" ||
 		model == "" ||
-		timeout <= 0 ||
-		maxOutputTokens <= 0 {
+		timeout <= 0 {
 		return nil, fmt.Errorf(
 			"%w: invalid Vertex AI configuration",
 			ErrInvalidResponse,
 		)
+	}
+
+	normalizedMaxOutputTokens, err := normalizeMaxOutputTokens(
+		maxOutputTokens,
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	client, err := genai.NewClient(
@@ -133,8 +141,23 @@ func NewDraftProvider(
 		generator,
 		model,
 		timeout,
-		int32(maxOutputTokens),
+		normalizedMaxOutputTokens,
 	), nil
+}
+
+func normalizeMaxOutputTokens(value int) (int32, error) {
+	if value < minimumOutputTokens ||
+		value > maximumOutputTokens {
+		return 0, fmt.Errorf(
+			"%w: Vertex AI max output tokens must be between %d and %d",
+			ErrInvalidResponse,
+			minimumOutputTokens,
+			maximumOutputTokens,
+		)
+	}
+
+	// #nosec G115 -- the explicit bounds above fit inside int32.
+	return int32(value), nil
 }
 
 func newDraftProvider(
