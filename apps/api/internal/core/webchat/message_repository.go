@@ -499,6 +499,13 @@ func (r *Repository) AddInboundMessage(
 
 	if !duplicate {
 		if strings.TrimSpace(responseDraft.Body) != "" {
+			groundingReferences, err := encodeDraftGroundingReferences(
+				responseDraft.GroundingReferences,
+			)
+			if err != nil {
+				return SessionView{}, err
+			}
+
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO assistant_messages (
 					tenant_id, conversation_id, direction, sender_type, provider,
@@ -511,10 +518,11 @@ func (r *Repository) AddInboundMessage(
 						'model', $5::text,
 						'used_fallback', $6::boolean,
 						'fallback_reason', NULLIF($7::text, ''),
+						'grounding_references', $8::jsonb,
 						'human_approval_required', TRUE,
-						'source_message_id', $8::text
+						'source_message_id', $9::text
 					)),
-					$9
+					$10
 				)
 			`,
 				tenantID,
@@ -524,6 +532,7 @@ func (r *Repository) AddInboundMessage(
 				responseDraft.Model,
 				responseDraft.UsedFallback,
 				string(responseDraft.FallbackReason),
+				groundingReferences,
 				input.ClientMessageID,
 				now.Add(time.Microsecond),
 			); err != nil {

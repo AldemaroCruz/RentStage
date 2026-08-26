@@ -2198,11 +2198,11 @@ p {
 .assistant-metrics strong { font-size: 24px; }
 .assistant-metrics small { color: var(--muted); font-size: 10px; }
 
-.assistant-workspace { display: grid; grid-template-columns: minmax(245px, .78fr) minmax(390px, 1.35fr) minmax(290px, .9fr); min-height: 640px; overflow: hidden; }
-.assistant-inbox, .assistant-review { min-width: 0; background: #fff; }
+.assistant-workspace { display: grid; grid-template-columns: minmax(245px, .78fr) minmax(390px, 1.35fr) minmax(290px, .9fr); height: clamp(560px, calc(100dvh - 220px), 720px); min-height: 0; overflow: hidden; }
+.assistant-inbox, .assistant-review { min-width: 0; min-height: 0; overflow-y: auto; background: #fff; }
 .assistant-inbox { border-right: 1px solid var(--line); }
 .assistant-review { border-left: 1px solid var(--line); padding-bottom: 20px; }
-.assistant-column-heading { display: flex; align-items: center; justify-content: space-between; min-height: 76px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.assistant-column-heading { position: sticky; z-index: 2; top: 0; display: flex; align-items: center; justify-content: space-between; min-height: 76px; padding: 16px 18px; border-bottom: 1px solid var(--line); background: inherit; }
 .assistant-column-heading h3 { margin: 2px 0 0; font-size: 15px; }
 .assistant-column-heading > span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: var(--primary); background: #efedff; font-size: 11px; font-weight: 900; }
 .assistant-empty { padding: 28px 20px; color: var(--muted); font-size: 12px; text-align: center; }
@@ -2218,7 +2218,7 @@ p {
 .assistant-conversation-row em { width: max-content; padding: 3px 6px; color: #7057c8; border-radius: 999px; background: #ede9ff; font-size: 8px; font-style: normal; font-weight: 800; text-transform: uppercase; }
 .assistant-conversation-row time { color: var(--muted); font-size: 8px; }
 
-.assistant-chat { display: flex; flex-direction: column; min-width: 0; background: #efeae2; }
+.assistant-chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #efeae2; }
 .assistant-chat-header { display: flex; align-items: center; gap: 11px; min-height: 76px; padding: 14px 18px; border-bottom: 1px solid #ddd9d1; background: #fff; }
 .assistant-chat-header > div:nth-child(2) { display: grid; gap: 3px; min-width: 0; }
 .assistant-chat-header strong { font-size: 13px; }
@@ -2264,6 +2264,14 @@ p {
 .assistant-analysis-card dd { margin: 0; font-weight: 700; }
 .assistant-analysis-card dd.available { color: #11805f; }
 .assistant-analysis-card dd.unavailable { color: #b44c22; }
+.assistant-grounding-card { display: grid; gap: 10px; margin: 18px; padding: 16px; border: 1px solid #cfc7ff; border-radius: 13px; background: linear-gradient(145deg, #fbfaff, #f1efff); }
+.assistant-grounding-card > span { color: #6d55c9; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
+.assistant-grounding-card h3 { margin: 0; font-size: 15px; }
+.assistant-grounding-card ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.assistant-grounding-card li { display: grid; gap: 3px; padding: 9px 10px; border: 1px solid #e1ddfa; border-radius: 9px; background: rgba(255, 255, 255, .7); }
+.assistant-grounding-card li em { color: var(--primary); font-size: 8px; font-style: normal; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.assistant-grounding-card li strong { font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
+.assistant-grounding-card > p { color: var(--ink-soft); font-size: 9px; line-height: 1.5; }
 .assistant-customer-panel { display: grid; gap: 11px; margin: 0 18px 18px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fbfbfe; }
 .assistant-customer-panel > div:first-child { display: grid; gap: 3px; }
 .assistant-customer-panel > div:first-child span { color: var(--primary); font-size: 8px; font-weight: 900; letter-spacing: .08em; }
@@ -2300,8 +2308,8 @@ p {
 .assistant-portal-link-actions .button, .assistant-portal-share { width: 100%; }
 
 @media (max-width: 1220px) {
-  .assistant-workspace { grid-template-columns: 235px minmax(360px, 1fr); }
-  .assistant-review { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(280px, .8fr) minmax(320px, 1.2fr); border-top: 1px solid var(--line); border-left: 0; }
+  .assistant-workspace { grid-template-columns: 235px minmax(360px, 1fr); grid-template-rows: clamp(560px, calc(100dvh - 220px), 720px) auto; height: auto; }
+  .assistant-review { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(280px, .8fr) minmax(320px, 1.2fr); overflow-y: visible; border-top: 1px solid var(--line); border-left: 0; }
   .assistant-review > .assistant-column-heading { grid-column: 1 / -1; }
   .assistant-review > .assistant-analysis-card { grid-row: span 5; }
 }
@@ -3158,7 +3166,7 @@ p {
   background: var(--surface);
 }
 
-:root[data-theme="dark"] :is(.assistant-boundary-strip, .assistant-metrics article, .assistant-inbox, .assistant-review, .assistant-conversation-row, .assistant-chat-header, .assistant-chat-composer, .assistant-chat-composer textarea, .assistant-bubble, .assistant-customer-panel, .assistant-analysis-card, .assistant-portal-panel) {
+:root[data-theme="dark"] :is(.assistant-boundary-strip, .assistant-metrics article, .assistant-inbox, .assistant-review, .assistant-conversation-row, .assistant-chat-header, .assistant-chat-composer, .assistant-chat-composer textarea, .assistant-bubble, .assistant-customer-panel, .assistant-analysis-card, .assistant-grounding-card, .assistant-portal-panel) {
   color: var(--ink);
   border-color: var(--line);
   background: var(--surface);
@@ -3174,6 +3182,7 @@ p {
 :root[data-theme="dark"] .assistant-draft-origin.ai { color: #d9d3ff; border-color: #6557ba; background: #332c63; }
 :root[data-theme="dark"] .assistant-draft-origin.rules { color: #bdebdc; border-color: #286955; background: #173f34; }
 :root[data-theme="dark"] .assistant-draft-origin.fallback { color: #ffd8aa; border-color: #845a2e; background: #4a321d; }
+:root[data-theme="dark"] .assistant-grounding-card li { border-color: var(--line); background: var(--surface-soft); }
 :root[data-theme="dark"] .assistant-quote-created { border-color: #265845; background: #17392f; }
 :root[data-theme="dark"] .assistant-approval-note { color: var(--ink-soft); background: var(--surface-soft); }
 :root[data-theme="dark"] .assistant-portal-panel dl div { background: rgba(140, 130, 255, .12); }

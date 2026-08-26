@@ -2,6 +2,7 @@ package webchat
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -15,6 +16,8 @@ type DraftMessageRole string
 
 type DraftFallbackReason string
 
+type DraftGroundingKind string
+
 const (
 	DraftKindInitial  DraftKind = "INITIAL"
 	DraftKindFollowUp DraftKind = "FOLLOW_UP"
@@ -26,6 +29,9 @@ const (
 	DraftFallbackReasonProviderError   DraftFallbackReason = "PROVIDER_ERROR"
 	DraftFallbackReasonInvalidResponse DraftFallbackReason = "INVALID_RESPONSE"
 
+	DraftGroundingKindPackage  DraftGroundingKind = "PACKAGE"
+	DraftGroundingKindResource DraftGroundingKind = "RESOURCE"
+
 	MaximumDraftContextMessages = 12
 	MaximumDraftContextRunes    = 8000
 
@@ -35,6 +41,7 @@ const (
 	MaximumDraftSalesDescriptionRunes = 400
 	MaximumDraftSalesMetadataRunes    = 180
 	MaximumDraftSalesContextRunes     = 16000
+	MaximumDraftGroundingReferences   = 5
 )
 
 var ErrInvalidDraft = errors.New("web chat draft is invalid")
@@ -79,12 +86,18 @@ type DraftSalesResource struct {
 	Price       *float64 `json:"price,omitempty"`
 }
 
+type DraftGroundingReference struct {
+	Kind DraftGroundingKind `json:"kind"`
+	Name string             `json:"name"`
+}
+
 type DraftResult struct {
-	Body           string
-	Engine         string
-	Model          string
-	UsedFallback   bool
-	FallbackReason DraftFallbackReason
+	Body                string
+	Engine              string
+	Model               string
+	UsedFallback        bool
+	FallbackReason      DraftFallbackReason
+	GroundingReferences []DraftGroundingReference
 }
 
 type DraftProviderFailure struct {
@@ -335,6 +348,141 @@ func NormalizeDraftSalesContext(
 	context.Resources = normalizedResources
 
 	return context, nil
+}
+
+func NormalizeDraftGroundingReferences(
+	references []DraftGroundingReference,
+	salesContext DraftSalesContext,
+) ([]DraftGroundingReference, error) {
+	if len(references) == 0 {
+		return []DraftGroundingReference{}, nil
+	}
+	if len(references) > MaximumDraftGroundingReferences {
+		return nil, fmt.Errorf(
+			"%w: draft exceeds %d grounding references",
+			ErrInvalidDraft,
+			MaximumDraftGroundingReferences,
+		)
+	}
+
+	normalizedContext, err := NormalizeDraftSalesContext(
+		salesContext,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	packages, err := draftGroundingNames(
+		normalizedContext.Packages,
+		func(item DraftSalesPackage) string { return item.Name },
+	)
+	if err != nil {
+		return nil, err
+	}
+	resources, err := draftGroundingNames(
+		normalizedContext.Resources,
+		func(item DraftSalesResource) string { return item.Name },
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	normalized := make(
+		[]DraftGroundingReference,
+		0,
+		len(references),
+	)
+	seen := make(map[string]struct{}, len(references))
+
+	for _, reference := range references {
+		reference.Name = strings.TrimSpace(reference.Name)
+		if reference.Name == "" ||
+			utf8.RuneCountInString(reference.Name) >
+				MaximumDraftSalesNameRunes {
+			return nil, fmt.Errorf(
+				"%w: invalid grounding reference name",
+				ErrInvalidDraft,
+			)
+		}
+
+		var allowed map[string]string
+		switch reference.Kind {
+		case DraftGroundingKindPackage:
+			allowed = packages
+		case DraftGroundingKindResource:
+			allowed = resources
+		default:
+			return nil, fmt.Errorf(
+				"%w: unsupported grounding reference kind %q",
+				ErrInvalidDraft,
+				reference.Kind,
+			)
+		}
+
+		canonicalName, ok := allowed[strings.ToLower(reference.Name)]
+		if !ok {
+			return nil, fmt.Errorf(
+				"%w: grounding reference is not in public catalog",
+				ErrInvalidDraft,
+			)
+		}
+
+		key := string(reference.Kind) + "\x00" +
+			strings.ToLower(canonicalName)
+		if _, duplicate := seen[key]; duplicate {
+			return nil, fmt.Errorf(
+				"%w: duplicate grounding reference",
+				ErrInvalidDraft,
+			)
+		}
+		seen[key] = struct{}{}
+
+		normalized = append(
+			normalized,
+			DraftGroundingReference{
+				Kind: reference.Kind,
+				Name: canonicalName,
+			},
+		)
+	}
+
+	return normalized, nil
+}
+
+func draftGroundingNames[T any](
+	items []T,
+	name func(T) string,
+) (map[string]string, error) {
+	result := make(map[string]string, len(items))
+	for _, item := range items {
+		canonicalName := strings.TrimSpace(name(item))
+		key := strings.ToLower(canonicalName)
+		if _, duplicate := result[key]; duplicate {
+			return nil, fmt.Errorf(
+				"%w: ambiguous public catalog reference",
+				ErrInvalidDraft,
+			)
+		}
+		result[key] = canonicalName
+	}
+	return result, nil
+}
+
+func encodeDraftGroundingReferences(
+	references []DraftGroundingReference,
+) (string, error) {
+	if references == nil {
+		references = []DraftGroundingReference{}
+	}
+
+	encoded, err := json.Marshal(references)
+	if err != nil {
+		return "", fmt.Errorf(
+			"encode web chat grounding references: %w",
+			err,
+		)
+	}
+	return string(encoded), nil
 }
 
 func validDraftCurrency(value string) bool {

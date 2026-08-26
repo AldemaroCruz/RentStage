@@ -101,7 +101,7 @@ func (g *stubGenerator) Generate(
 
 func TestDraftProviderGeneratesStructuredDraft(t *testing.T) {
 	generator := &stubGenerator{
-		response: `{"reply":"Gracias por la información. El equipo confirmará los detalles."}`,
+		response: `{"reply":"Gracias por la información. El equipo confirmará los detalles.","references":[{"kind":"PACKAGE","name":"Paquete Fiesta"}]}`,
 	}
 	provider := newDraftProvider(
 		generator,
@@ -146,6 +146,15 @@ func TestDraftProviderGeneratesStructuredDraft(t *testing.T) {
 	}
 	if result.UsedFallback {
 		t.Fatal("Vertex provider must not mark its own result as fallback")
+	}
+	if len(result.GroundingReferences) != 1 ||
+		result.GroundingReferences[0].Kind !=
+			webchat.DraftGroundingKindPackage ||
+		result.GroundingReferences[0].Name != "Paquete Fiesta" {
+		t.Fatalf(
+			"unexpected grounding references: %#v",
+			result.GroundingReferences,
+		)
 	}
 	if generator.calls != 1 {
 		t.Fatalf("unexpected generator calls: %d", generator.calls)
@@ -283,6 +292,8 @@ func TestDraftProviderRejectsInvalidResponses(t *testing.T) {
 		"",
 		"not-json",
 		`{"reply":""}`,
+		`{"reply":"válido"}`,
+		`{"reply":"válido","references":null}`,
 		`{"reply":"válido","extra":true}`,
 		`{"reply":"válido"} trailing`,
 	}
@@ -430,6 +441,7 @@ func TestGenerationConfigRequiresStructuredJSON(t *testing.T) {
 		"catalog_context como única fuente",
 		"Nunca afirmes que un artículo está disponible",
 		"no menciones ni infieras su precio",
+		"copiar exactamente el name de catalog_context",
 	} {
 		if !strings.Contains(systemInstruction, rule) {
 			t.Fatalf("system instruction is missing %q", rule)
@@ -442,5 +454,22 @@ func TestGenerationConfigRequiresStructuredJSON(t *testing.T) {
 	replySchema := config.ResponseSchema.Properties["reply"]
 	if replySchema == nil {
 		t.Fatal("reply schema is required")
+	}
+
+	referencesSchema := config.ResponseSchema.Properties["references"]
+	if referencesSchema == nil || referencesSchema.Items == nil {
+		t.Fatal("grounding references schema is required")
+	}
+	if referencesSchema.MaxItems == nil ||
+		*referencesSchema.MaxItems !=
+			int64(webchat.MaximumDraftGroundingReferences) {
+		t.Fatalf(
+			"unexpected grounding reference limit: %#v",
+			referencesSchema.MaxItems,
+		)
+	}
+	if referencesSchema.Items.Properties["kind"] == nil ||
+		referencesSchema.Items.Properties["name"] == nil {
+		t.Fatal("grounding reference fields are required")
 	}
 }

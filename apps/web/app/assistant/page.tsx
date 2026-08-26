@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { api, ApiError } from "@/lib/api";
+import { assistantDraftEvidence } from "@/lib/assistant-draft-evidence";
 import { assistantDraftProvenance } from "@/lib/assistant-draft-provenance";
 import { formatCurrency, formatDateTime, formatQuoteNumber, formatReservationNumber } from "@/lib/format";
 import type {
@@ -137,6 +138,11 @@ export default function AssistantPage() {
     return [...detail.messages].reverse().find((message) =>
       message.direction === "OUTBOUND" && ["DRAFT", "APPROVED"].includes(message.status));
   }, [detail]);
+
+  const pendingEvidence = useMemo(
+    () => assistantDraftEvidence(pendingMessage),
+    [pendingMessage],
+  );
 
   async function loadList(preferredID?: string) {
     const response = await api<{ items: AssistantConversationSummary[] }>("/api/v1/assistant/conversations");
@@ -559,7 +565,15 @@ export default function AssistantPage() {
 
         <aside className="assistant-review">
           <div className="assistant-column-heading"><div><p className="eyebrow">HUMAN IN THE LOOP</p><h3>Propuesta comercial</h3></div></div>
-          {!detail?.proposal ? <div className="assistant-empty">No hay una propuesta seleccionada.</div> : <>
+          {pendingEvidence.length > 0 && <section className="assistant-grounding-card" aria-label="Evidencia del catálogo para revisión humana">
+            <span>EVIDENCIA VALIDADA</span>
+            <h3>Referencias del catálogo</h3>
+            <ul>{pendingEvidence.map((reference) => (
+              <li key={`${reference.kind}:${reference.name}`}><em>{reference.kindLabel}</em><strong>{reference.name}</strong></li>
+            ))}</ul>
+            <p>Estas referencias fueron verificadas contra el catálogo público enviado a la IA. No confirman disponibilidad ni constituyen una cotización.</p>
+          </section>}
+          {!detail?.proposal ? pendingEvidence.length === 0 ? <div className="assistant-empty">No hay una propuesta seleccionada.</div> : null : <>
             <div className="assistant-analysis-card">
               <span className="assistant-engine">✨ {detail.proposal.provider}</span>
               <h3>{detail.proposal.package_name}</h3>
