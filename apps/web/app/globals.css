@@ -2231,6 +2231,10 @@ p {
 .assistant-bubble.outbound { margin-left: auto; border-radius: 13px 4px 13px 13px; background: #d9fdd3; }
 .assistant-bubble.draft { outline: 1px dashed #8973d8; background: #f1edff; }
 .assistant-bubble small { display: block; margin-bottom: 5px; color: #6a52c7; font-size: 8px; font-weight: 900; letter-spacing: .05em; }
+.assistant-draft-origin { display: inline-flex; align-items: center; margin: 0 0 7px; padding: 4px 7px; border: 1px solid transparent; border-radius: 999px; font-size: 8px; font-weight: 850; letter-spacing: .03em; }
+.assistant-draft-origin.ai { color: #4133a6; border-color: #bdb3ff; background: #e7e3ff; }
+.assistant-draft-origin.rules { color: #17604c; border-color: #9ed7c6; background: #e2f6ef; }
+.assistant-draft-origin.fallback { color: #874b16; border-color: #ecc28e; background: #fff0dc; }
 .assistant-bubble p { font-size: 11px; line-height: 1.55; }
 .assistant-bubble time { display: block; margin-top: 5px; color: #7a7e83; font-size: 7px; text-align: right; }
 .assistant-message-portal { display: grid; gap: 4px; margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(18, 140, 126, .2); }
@@ -3167,6 +3171,9 @@ p {
 :root[data-theme="dark"] .assistant-chat-day { color: var(--ink-soft); background: rgba(23, 27, 45, .92); }
 :root[data-theme="dark"] .assistant-bubble.outbound { background: #183b31; }
 :root[data-theme="dark"] .assistant-bubble.draft { background: #282343; }
+:root[data-theme="dark"] .assistant-draft-origin.ai { color: #d9d3ff; border-color: #6557ba; background: #332c63; }
+:root[data-theme="dark"] .assistant-draft-origin.rules { color: #bdebdc; border-color: #286955; background: #173f34; }
+:root[data-theme="dark"] .assistant-draft-origin.fallback { color: #ffd8aa; border-color: #845a2e; background: #4a321d; }
 :root[data-theme="dark"] .assistant-quote-created { border-color: #265845; background: #17392f; }
 :root[data-theme="dark"] .assistant-approval-note { color: var(--ink-soft); background: var(--surface-soft); }
 :root[data-theme="dark"] .assistant-portal-panel dl div { background: rgba(140, 130, 255, .12); }

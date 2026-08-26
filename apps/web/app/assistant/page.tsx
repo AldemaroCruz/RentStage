@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { api, ApiError } from "@/lib/api";
+import { assistantDraftProvenance } from "@/lib/assistant-draft-provenance";
 import { formatCurrency, formatDateTime, formatQuoteNumber, formatReservationNumber } from "@/lib/format";
 import type {
   AssistantConversationDetail,
@@ -447,7 +448,7 @@ export default function AssistantPage() {
     <div className="page-stack assistant-page">
       <section className="assistant-hero">
         <div>
-          <p className="eyebrow">ASISTENTE OMNICANAL · V0.19.1</p>
+          <p className="eyebrow">ASISTENTE OMNICANAL · V0.20.0</p>
           <h2>Gestiona cada conversación con una persona al mando.</h2>
           <p>
             Centraliza chat web, Meta local y demostraciones, conserva la revisión
@@ -475,7 +476,7 @@ export default function AssistantPage() {
         <strong>Conector Meta: {readiness?.mode || "cargando"}</strong>
         <span>Webhook firmado: {readiness?.signature_validation_configured ? "listo" : "pendiente"}.</span>
         <span>Salida local: {readiness?.local_delivery_available ? "habilitada" : "bloqueada"}.</span>
-        <span>Salida cloud: bloqueada en v0.19.1.</span>
+        <span>Salida cloud: bloqueada en v0.20.0.</span>
         <Link href="/privacy">Privacidad</Link><Link href="/data-deletion">Eliminar datos</Link><Link href="/support">Soporte</Link>
       </section>
 
@@ -525,17 +526,21 @@ export default function AssistantPage() {
             </header>
             <div className="assistant-chat-scroll" ref={chatScrollRef}>
               <div className="assistant-chat-day">HOY · {channelLabel(detail.channel).toUpperCase()}</div>
-              {detail.messages.map((message) => (
-                <article key={message.id} className={`assistant-bubble ${message.direction === "OUTBOUND" ? "outbound" : "inbound"} ${message.status === "DRAFT" ? "draft" : ""}`}>
-                  <small>{messageLabel(message, detail.channel)}</small>
-                  <p>{message.body}</p>
-                  {message.metadata.message_kind === "QUOTE_PORTAL" && <div className="assistant-message-portal">
-                    <strong>{portalStatusLabel(detail.proposal?.portal_status)}</strong>
-                    {portalURL ? <a href={portalURL} target="_blank" rel="noreferrer">Abrir portal como cliente →</a> : <span>El enlace secreto solo se conserva durante esta sesión.</span>}
-                  </div>}
-                  <time>{formatDateTime(message.created_at)}</time>
-                </article>
-              ))}
+              {detail.messages.map((message) => {
+                const provenance = assistantDraftProvenance(message);
+                return (
+                  <article key={message.id} className={`assistant-bubble ${message.direction === "OUTBOUND" ? "outbound" : "inbound"} ${message.status === "DRAFT" ? "draft" : ""}`}>
+                    <small>{messageLabel(message, detail.channel)}</small>
+                    {provenance && <span className={`assistant-draft-origin ${provenance.tone}`} title={provenance.description}>{provenance.label}</span>}
+                    <p>{message.body}</p>
+                    {message.metadata.message_kind === "QUOTE_PORTAL" && <div className="assistant-message-portal">
+                      <strong>{portalStatusLabel(detail.proposal?.portal_status)}</strong>
+                      {portalURL ? <a href={portalURL} target="_blank" rel="noreferrer">Abrir portal como cliente →</a> : <span>El enlace secreto solo se conserva durante esta sesión.</span>}
+                    </div>}
+                    <time>{formatDateTime(message.created_at)}</time>
+                  </article>
+                );
+              })}
             </div>
             {canManage && <div className="assistant-chat-composer">
               <label><span>{pendingMessage ? "Revisar borrador antes de enviar" : "Responder como miembro del equipo"}</span><textarea value={sendBody} onChange={(event) => setSendBody(event.target.value)} placeholder="Escribe una respuesta para el cliente…" /></label>

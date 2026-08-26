@@ -75,7 +75,20 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, logger *slo
 	)
 	assistantRepository := assistant.NewRepository(pool)
 	webChatRepository := webchat.NewRepository(pool)
-	webChatService := webchat.NewService(webChatRepository)
+
+	webChatDraftProvider, err := resolveWebChatDraftProvider(
+		ctx,
+		cfg,
+		newVertexDraftProvider,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	webChatService := webchat.NewServiceWithDraftProvider(
+		webChatRepository,
+		webChatDraftProvider,
+	)
 	var whatsAppSender assistant.WhatsAppSender
 	if cfg.MetaWhatsAppMode == "local_mock" && cfg.MetaOutboundEnabled {
 		whatsAppSender = metaintegration.NewClient(

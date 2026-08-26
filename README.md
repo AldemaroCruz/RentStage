@@ -1,8 +1,19 @@
-# RentStage Starter v0.19.1
+# RentStage Starter v0.20.0
 
-> **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora un inbox omnicanal con chat web propio, recomendaciones sobre paquetes reales y aprobación humana antes de cada respuesta.
+> **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora borradores de respuesta asistidos por Vertex AI con procedencia visible y aprobación humana obligatoria.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## AI-assisted conversation drafts in v0.20.0
+
+- Introduces a provider boundary for private web-chat reply drafts, with deterministic rules as the safe default and Vertex AI as an explicit opt-in mode.
+- Generates initial and follow-up drafts through the same idempotent workflow while keeping every draft invisible to the visitor until an authorized user publishes it.
+- Falls back to bounded deterministic copy when the configured AI provider fails or returns an invalid result.
+- Records the draft engine, model, fallback state, source-message identity, and mandatory human-review state in existing message metadata.
+- Shows draft provenance in the assistant inbox as **Vertex AI**, **Deterministic rules**, or **Safe fallback** before publication.
+- Adds reproducible npm installs, runtime configuration validation, staging controls, and the least-privilege Vertex AI runtime grant without adding a database migration.
+
+See [`docs/AI-CONVERSATION-DRAFTS-0.20.0.md`](docs/AI-CONVERSATION-DRAFTS-0.20.0.md), [`docs/UPGRADE-0.20.0.md`](docs/UPGRADE-0.20.0.md), and [`docs/VALIDATION-0.20.0.md`](docs/VALIDATION-0.20.0.md).
 
 ## Reliability update in v0.19.1
 
