@@ -448,7 +448,7 @@ export default function AssistantPage() {
     <div className="page-stack assistant-page">
       <section className="assistant-hero">
         <div>
-          <p className="eyebrow">ASISTENTE OMNICANAL · V0.19.1</p>
+          <p className="eyebrow">ASISTENTE OMNICANAL · V0.20.0</p>
           <h2>Gestiona cada conversación con una persona al mando.</h2>
           <p>
             Centraliza chat web, Meta local y demostraciones, conserva la revisión
@@ -476,7 +476,7 @@ export default function AssistantPage() {
         <strong>Conector Meta: {readiness?.mode || "cargando"}</strong>
         <span>Webhook firmado: {readiness?.signature_validation_configured ? "listo" : "pendiente"}.</span>
         <span>Salida local: {readiness?.local_delivery_available ? "habilitada" : "bloqueada"}.</span>
-        <span>Salida cloud: bloqueada en v0.19.1.</span>
+        <span>Salida cloud: bloqueada en v0.20.0.</span>
         <Link href="/privacy">Privacidad</Link><Link href="/data-deletion">Eliminar datos</Link><Link href="/support">Soporte</Link>
       </section>
 

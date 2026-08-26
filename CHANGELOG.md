@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.20.0 — AI-assisted conversation drafts
+
+### Added
+
+- Adds a web-chat draft-provider boundary with deterministic rules and an optional Vertex AI adapter using Application Default Credentials.
+- Adds validated AI mode, project, location, model, timeout, and output-token configuration with safe local and staging defaults.
+- Adds provenance metadata and reviewer-facing badges for Vertex AI, deterministic rules, and safe fallback drafts.
+- Adds Terraform and deployment wiring for the Vertex AI API and the API runtime service account.
+
+### Reliability and human control
+
+- Routes both initial and follow-up web-chat drafts through the configured provider while preserving client-message idempotency.
+- Falls back to deterministic, length-bounded copy when the primary provider fails or returns an invalid draft.
+- Keeps generated drafts private and requires an authenticated user to review and explicitly publish every response.
+- Performs no automatic external delivery, quote approval, reservation, or inventory mutation.
+
+### Build and compatibility
+
+- Adds and enforces `package-lock.json` through local, Docker, CI, security-audit, and version-consistency workflows.
+- Keeps migration ordering at `016_omnichannel_web_chat.sql`; no database migration or public chat API change is required.
+- Keeps `rules` as the default runtime mode so existing installations need no cloud credential or Vertex AI access.
+
 ## 0.19.1 — Resilient web-chat recovery and polling
 
 ### Fixed
