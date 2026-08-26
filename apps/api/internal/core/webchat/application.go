@@ -199,12 +199,16 @@ func (s *Service) generateDraft(
 	ctx context.Context,
 	request DraftRequest,
 ) (DraftResult, error) {
+	fallbackReason := DraftFallbackReasonProviderError
 	result, err := s.draftProvider.GenerateDraft(ctx, request)
 	if err == nil {
 		normalized, normalizeErr := normalizeDraft(result)
 		if normalizeErr == nil {
 			return normalized, nil
 		}
+		fallbackReason = DraftFallbackReasonInvalidResponse
+	} else {
+		fallbackReason = DraftFallbackReasonFromError(err)
 	}
 
 	fallback, err := s.fallbackDraftProvider.GenerateDraft(
@@ -227,6 +231,7 @@ func (s *Service) generateDraft(
 	}
 
 	fallback.UsedFallback = true
+	fallback.FallbackReason = fallbackReason
 
 	return fallback, nil
 }

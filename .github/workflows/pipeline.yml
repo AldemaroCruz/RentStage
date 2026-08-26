@@ -383,6 +383,7 @@ jobs:
           ASSISTANT_AI_MODE: ${{ vars.STAGING_ASSISTANT_AI_MODE || 'rules' }}
           ASSISTANT_AI_LOCATION: ${{ vars.STAGING_ASSISTANT_AI_LOCATION || vars.GCP_REGION }}
           ASSISTANT_AI_MODEL: ${{ vars.STAGING_ASSISTANT_AI_MODEL || 'gemini-2.5-flash' }}
+          ASSISTANT_AI_TIMEOUT: ${{ vars.STAGING_ASSISTANT_AI_TIMEOUT || '20s' }}
           API_IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/rentstage-api:${{ github.sha }}
           WEB_IMAGE: ${{ steps.build-web.outputs.image }}
         run: bash scripts/gcp/deploy-staging.sh

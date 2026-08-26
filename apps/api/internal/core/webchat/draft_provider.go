@@ -13,12 +13,18 @@ type DraftKind string
 
 type DraftMessageRole string
 
+type DraftFallbackReason string
+
 const (
 	DraftKindInitial  DraftKind = "INITIAL"
 	DraftKindFollowUp DraftKind = "FOLLOW_UP"
 
 	DraftMessageRoleCustomer DraftMessageRole = "CUSTOMER"
 	DraftMessageRoleTeam     DraftMessageRole = "TEAM"
+
+	DraftFallbackReasonTimeout         DraftFallbackReason = "TIMEOUT"
+	DraftFallbackReasonProviderError   DraftFallbackReason = "PROVIDER_ERROR"
+	DraftFallbackReasonInvalidResponse DraftFallbackReason = "INVALID_RESPONSE"
 
 	MaximumDraftContextMessages = 12
 	MaximumDraftContextRunes    = 8000
@@ -74,10 +80,60 @@ type DraftSalesResource struct {
 }
 
 type DraftResult struct {
-	Body         string
-	Engine       string
-	Model        string
-	UsedFallback bool
+	Body           string
+	Engine         string
+	Model          string
+	UsedFallback   bool
+	FallbackReason DraftFallbackReason
+}
+
+type DraftProviderFailure struct {
+	Reason DraftFallbackReason
+	err    error
+}
+
+func (e *DraftProviderFailure) Error() string {
+	return fmt.Sprintf(
+		"web chat draft provider failed (%s)",
+		e.Reason,
+	)
+}
+
+func (e *DraftProviderFailure) Unwrap() error {
+	return e.err
+}
+
+func NewDraftProviderFailure(
+	reason DraftFallbackReason,
+	err error,
+) error {
+	if !validDraftFallbackReason(reason) {
+		reason = DraftFallbackReasonProviderError
+	}
+	if err == nil {
+		err = ErrInvalidDraft
+	}
+
+	return &DraftProviderFailure{
+		Reason: reason,
+		err:    err,
+	}
+}
+
+func DraftFallbackReasonFromError(
+	err error,
+) DraftFallbackReason {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return DraftFallbackReasonTimeout
+	}
+
+	var providerFailure *DraftProviderFailure
+	if errors.As(err, &providerFailure) &&
+		validDraftFallbackReason(providerFailure.Reason) {
+		return providerFailure.Reason
+	}
+
+	return DraftFallbackReasonProviderError
 }
 
 type DraftProvider interface {
@@ -363,7 +419,9 @@ func normalizeDraft(result DraftResult) (DraftResult, error) {
 
 	if result.Body == "" ||
 		result.Engine == "" ||
-		result.Model == "" {
+		result.Model == "" ||
+		result.UsedFallback ||
+		result.FallbackReason != "" {
 		return DraftResult{}, ErrInvalidDraft
 	}
 
@@ -373,4 +431,17 @@ func normalizeDraft(result DraftResult) (DraftResult, error) {
 	}
 
 	return result, nil
+}
+
+func validDraftFallbackReason(
+	reason DraftFallbackReason,
+) bool {
+	switch reason {
+	case DraftFallbackReasonTimeout,
+		DraftFallbackReasonProviderError,
+		DraftFallbackReasonInvalidResponse:
+		return true
+	default:
+		return false
+	}
 }

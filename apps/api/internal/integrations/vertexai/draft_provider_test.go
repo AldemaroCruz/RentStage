@@ -332,6 +332,10 @@ func TestDraftProviderPropagatesGeneratorFailure(t *testing.T) {
 	if !errors.Is(err, providerFailure) {
 		t.Fatalf("expected provider failure, got %v", err)
 	}
+	reason := webchat.DraftFallbackReasonFromError(err)
+	if reason != webchat.DraftFallbackReasonProviderError {
+		t.Fatalf("unexpected fallback reason: %q", reason)
+	}
 }
 
 func TestDraftProviderEnforcesTimeout(t *testing.T) {
@@ -351,6 +355,31 @@ func TestDraftProviderEnforcesTimeout(t *testing.T) {
 	)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+	reason := webchat.DraftFallbackReasonFromError(err)
+	if reason != webchat.DraftFallbackReasonTimeout {
+		t.Fatalf("unexpected fallback reason: %q", reason)
+	}
+}
+
+func TestDraftProviderClassifiesInvalidResponse(t *testing.T) {
+	provider := newDraftProvider(
+		&stubGenerator{response: `{"reply":"","raw_error":"internal-detail"}`},
+		"gemini-2.5-flash",
+		time.Second,
+		512,
+	)
+
+	_, err := provider.GenerateDraft(
+		context.Background(),
+		webchat.DraftRequest{
+			Kind:         webchat.DraftKindFollowUp,
+			SalesContext: testSalesContext(),
+		},
+	)
+	reason := webchat.DraftFallbackReasonFromError(err)
+	if reason != webchat.DraftFallbackReasonInvalidResponse {
+		t.Fatalf("unexpected fallback reason: %q", reason)
 	}
 }
 

@@ -506,14 +506,15 @@ func (r *Repository) AddInboundMessage(
 				) VALUES (
 					$1, $2, 'OUTBOUND', 'ASSISTANT', 'WEB_CHAT',
 					$3, 'DRAFT',
-					jsonb_build_object(
+					jsonb_strip_nulls(jsonb_build_object(
 						'engine', $4::text,
 						'model', $5::text,
 						'used_fallback', $6::boolean,
+						'fallback_reason', NULLIF($7::text, ''),
 						'human_approval_required', TRUE,
-						'source_message_id', $7::text
-					),
-					$8
+						'source_message_id', $8::text
+					)),
+					$9
 				)
 			`,
 				tenantID,
@@ -522,6 +523,7 @@ func (r *Repository) AddInboundMessage(
 				responseDraft.Engine,
 				responseDraft.Model,
 				responseDraft.UsedFallback,
+				string(responseDraft.FallbackReason),
 				input.ClientMessageID,
 				now.Add(time.Microsecond),
 			); err != nil {

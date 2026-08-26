@@ -59,6 +59,35 @@ test("gives fallback precedence over provider metadata", () => {
   assert.equal(result?.tone, "fallback");
 });
 
+test("describes allowlisted fallback reasons without exposing provider errors", () => {
+  const timeout = assistantDraftProvenance(
+    draft({
+      used_fallback: true,
+      fallback_reason: "TIMEOUT",
+    }),
+  );
+  const invalid = assistantDraftProvenance(
+    draft({
+      used_fallback: true,
+      fallback_reason: "INVALID_RESPONSE",
+    }),
+  );
+  const unknown = assistantDraftProvenance(
+    draft({
+      used_fallback: true,
+      fallback_reason: "provider raw error with secret",
+    }),
+  );
+
+  assert.match(timeout?.description ?? "", /tiempo de espera/);
+  assert.match(invalid?.description ?? "", /borrador no válido/);
+  assert.equal(
+    unknown?.description,
+    "El proveedor principal no pudo completar el borrador; se utilizaron reglas determinísticas.",
+  );
+  assert.doesNotMatch(unknown?.description ?? "", /secret/);
+});
+
 test("labels primary deterministic drafts without calling them fallback", () => {
   const result = assistantDraftProvenance(
     draft({

@@ -188,16 +188,22 @@ func (p *DraftProvider) GenerateDraft(
 	case webchat.DraftKindInitial,
 		webchat.DraftKindFollowUp:
 	default:
-		return webchat.DraftResult{}, fmt.Errorf(
-			"%w: unsupported draft kind %q",
-			ErrInvalidResponse,
-			request.Kind,
+		return webchat.DraftResult{}, webchat.NewDraftProviderFailure(
+			webchat.DraftFallbackReasonInvalidResponse,
+			fmt.Errorf(
+				"%w: unsupported draft kind %q",
+				ErrInvalidResponse,
+				request.Kind,
+			),
 		)
 	}
 
 	prompt, err := buildPrompt(request)
 	if err != nil {
-		return webchat.DraftResult{}, err
+		return webchat.DraftResult{}, webchat.NewDraftProviderFailure(
+			webchat.DraftFallbackReasonInvalidResponse,
+			err,
+		)
 	}
 
 	generationContext, cancel := context.WithTimeout(
@@ -215,15 +221,26 @@ func (p *DraftProvider) GenerateDraft(
 		},
 	)
 	if err != nil {
-		return webchat.DraftResult{}, fmt.Errorf(
-			"generate Vertex AI web chat draft: %w",
-			err,
+		reason := webchat.DraftFallbackReasonProviderError
+		if errors.Is(err, context.DeadlineExceeded) {
+			reason = webchat.DraftFallbackReasonTimeout
+		}
+
+		return webchat.DraftResult{}, webchat.NewDraftProviderFailure(
+			reason,
+			fmt.Errorf(
+				"generate Vertex AI web chat draft: %w",
+				err,
+			),
 		)
 	}
 
 	reply, err := decodeDraftResponse(rawResponse)
 	if err != nil {
-		return webchat.DraftResult{}, err
+		return webchat.DraftResult{}, webchat.NewDraftProviderFailure(
+			webchat.DraftFallbackReasonInvalidResponse,
+			err,
+		)
 	}
 
 	return webchat.DraftResult{
