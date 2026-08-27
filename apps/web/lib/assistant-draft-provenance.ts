@@ -31,12 +31,19 @@ export function assistantDraftProvenance(
   const engine = metadataText(message.metadata.engine);
   const model = metadataText(message.metadata.model);
   const usedFallback = metadataFlag(message.metadata.used_fallback);
+  const fallbackReason = metadataText(message.metadata.fallback_reason);
 
   if (usedFallback) {
+    const description =
+      fallbackReason === "TIMEOUT"
+        ? "Vertex AI excedió el tiempo de espera; se utilizaron reglas determinísticas."
+        : fallbackReason === "INVALID_RESPONSE"
+          ? "El proveedor principal devolvió un borrador no válido; se utilizaron reglas determinísticas."
+          : "El proveedor principal no pudo completar el borrador; se utilizaron reglas determinísticas.";
+
     return {
       label: "Fallback seguro",
-      description:
-        "El proveedor principal no produjo un borrador válido; se utilizaron reglas determinísticas.",
+      description,
       tone: "fallback",
     };
   }

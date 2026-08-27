@@ -119,7 +119,7 @@ func Load() (Config, error) {
 	}
 
 	assistantAITimeout, err := time.ParseDuration(
-		env("ASSISTANT_AI_TIMEOUT", "8s"),
+		env("ASSISTANT_AI_TIMEOUT", "20s"),
 	)
 	if err != nil {
 		return Config{}, fmt.Errorf(

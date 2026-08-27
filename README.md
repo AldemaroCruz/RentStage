@@ -1,8 +1,21 @@
-# RentStage Starter v0.20.0
+# RentStage Starter v0.21.0
 
 > **Demo comercial para CONAMYPE**: el recorrido conecta inventario, cotización, reserva, facturación y cobro, y ahora incorpora borradores de respuesta asistidos por Vertex AI con procedencia visible y aprobación humana obligatoria.
 
 RentStage is a multi-tenant rental-operations SaaS foundation. It begins with professional audio equipment and is designed to expand into studios, rehearsal rooms, services, public catalogs, fiscal operations, and AI-assisted customer conversations through controlled application APIs.
+
+## Grounded sales copilot in v0.21.0
+
+- Gives Vertex AI a bounded recent conversation history with explicit `CUSTOMER` and `TEAM` roles, while treating both conversation and catalog content as untrusted data.
+- Grounds private drafts exclusively in the tenant's published packages and visible resources, respecting price and resource-visibility settings.
+- Validates and canonicalizes every cited catalog reference before persistence, and shows that evidence only to authenticated reviewers.
+- Extracts a private commercial brief from literal customer-message fragments: event type, date, location, guest count, budget, missing details, and one suggested follow-up question.
+- Records timeout, provider-error, and invalid-response fallback reasons without exposing provider diagnostics or draft metadata to the visitor.
+- Rejects unverified availability, reservation, discount, payment, quote, price, currency, and guest-capacity claims before persistence.
+- Keeps every AI result as a private draft requiring explicit human publication; it never creates quotes, reservations, inventory mutations, payments, or external delivery.
+- Adds no database migration, public API shape change, new secret, or additional cloud IAM role.
+
+See [`docs/GROUNDED-SALES-COPILOT-0.21.0.md`](docs/GROUNDED-SALES-COPILOT-0.21.0.md), [`docs/UPGRADE-0.21.0.md`](docs/UPGRADE-0.21.0.md), and [`docs/VALIDATION-0.21.0.md`](docs/VALIDATION-0.21.0.md).
 
 ## AI-assisted conversation drafts in v0.20.0
 

@@ -6,9 +6,44 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 )
+
+const visibleDraftConversationQuery = `
+	SELECT recent.direction, recent.body
+	FROM (
+		SELECT
+			message.id,
+			message.direction,
+			message.body,
+			message.created_at
+		FROM assistant_messages message
+		WHERE message.tenant_id = $1
+		  AND message.conversation_id = $2
+		  AND message.provider = 'WEB_CHAT'
+		  AND (
+			(
+				message.direction = 'INBOUND'
+				AND message.sender_type = 'CUSTOMER'
+				AND message.status = 'RECEIVED'
+			)
+			OR (
+				message.direction = 'OUTBOUND'
+				AND message.sender_type = 'USER'
+				AND message.status IN (
+					'SENT',
+					'DELIVERED',
+					'READ'
+				)
+			)
+		  )
+		ORDER BY message.created_at DESC, message.id DESC
+		LIMIT $3
+	) recent
+	ORDER BY recent.created_at, recent.id
+`
 
 type inboundDraftPreparation struct {
 	Request   DraftRequest
@@ -138,7 +173,147 @@ func (r *Repository) PrepareInboundDraft(
 		return inboundDraftPreparation{}, ErrRateLimited
 	}
 
+	previousMessages, err := r.visibleDraftConversation(
+		ctx,
+		tenantID,
+		conversationID,
+	)
+	if err != nil {
+		return inboundDraftPreparation{}, err
+	}
+	preparation.Request.PreviousMessages = previousMessages
+
+	salesContext, err := r.LoadDraftSalesContext(
+		ctx,
+		tenantID,
+	)
+	if err != nil {
+		return inboundDraftPreparation{}, err
+	}
+	preparation.Request.SalesContext = salesContext
+
 	return preparation, nil
+}
+
+func (r *Repository) visibleDraftConversation(
+	ctx context.Context,
+	tenantID string,
+	conversationID string,
+) ([]DraftConversationMessage, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		visibleDraftConversationQuery,
+		tenantID,
+		conversationID,
+		MaximumDraftContextMessages,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"query visible web chat draft context: %w",
+			err,
+		)
+	}
+	defer rows.Close()
+
+	messages := make(
+		[]DraftConversationMessage,
+		0,
+		MaximumDraftContextMessages,
+	)
+
+	for rows.Next() {
+		var direction string
+		var body string
+
+		if err := rows.Scan(&direction, &body); err != nil {
+			return nil, fmt.Errorf(
+				"scan visible web chat draft context: %w",
+				err,
+			)
+		}
+
+		message, err := draftConversationMessage(
+			direction,
+			body,
+		)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, message)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(
+			"iterate visible web chat draft context: %w",
+			err,
+		)
+	}
+
+	messages, err = boundedDraftConversation(messages)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"bound visible web chat draft context: %w",
+			err,
+		)
+	}
+
+	return messages, nil
+}
+
+func draftConversationMessage(
+	direction string,
+	body string,
+) (DraftConversationMessage, error) {
+	message := DraftConversationMessage{
+		Body: strings.TrimSpace(body),
+	}
+
+	switch direction {
+	case "INBOUND":
+		message.Role = DraftMessageRoleCustomer
+	case "OUTBOUND":
+		message.Role = DraftMessageRoleTeam
+	default:
+		return DraftConversationMessage{}, fmt.Errorf(
+			"%w: unsupported visible message direction %q",
+			ErrInvalidDraft,
+			direction,
+		)
+	}
+
+	return message, nil
+}
+
+func boundedDraftConversation(
+	messages []DraftConversationMessage,
+) ([]DraftConversationMessage, error) {
+	if len(messages) > MaximumDraftContextMessages {
+		messages = messages[len(messages)-MaximumDraftContextMessages:]
+	}
+
+	candidates := append(
+		[]DraftConversationMessage(nil),
+		messages...,
+	)
+	start := len(candidates)
+	totalRunes := 0
+
+	for index := len(candidates) - 1; index >= 0; index-- {
+		candidates[index].Body = strings.TrimSpace(
+			candidates[index].Body,
+		)
+		messageRunes := utf8.RuneCountInString(
+			candidates[index].Body,
+		)
+		if totalRunes+messageRunes >
+			MaximumDraftContextRunes {
+			break
+		}
+
+		totalRunes += messageRunes
+		start = index
+	}
+
+	return NormalizeDraftConversation(candidates[start:])
 }
 
 func (r *Repository) AddInboundMessage(
@@ -324,6 +499,17 @@ func (r *Repository) AddInboundMessage(
 
 	if !duplicate {
 		if strings.TrimSpace(responseDraft.Body) != "" {
+			groundingReferences, err := encodeDraftGroundingReferences(
+				responseDraft.GroundingReferences,
+			)
+			if err != nil {
+				return SessionView{}, err
+			}
+			salesBrief, err := encodeDraftSalesBrief(responseDraft.SalesBrief)
+			if err != nil {
+				return SessionView{}, err
+			}
+
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO assistant_messages (
 					tenant_id, conversation_id, direction, sender_type, provider,
@@ -331,14 +517,17 @@ func (r *Repository) AddInboundMessage(
 				) VALUES (
 					$1, $2, 'OUTBOUND', 'ASSISTANT', 'WEB_CHAT',
 					$3, 'DRAFT',
-					jsonb_build_object(
+					jsonb_strip_nulls(jsonb_build_object(
 						'engine', $4::text,
 						'model', $5::text,
 						'used_fallback', $6::boolean,
+						'fallback_reason', NULLIF($7::text, ''),
+						'grounding_references', $8::jsonb,
+						'sales_brief', $9::jsonb,
 						'human_approval_required', TRUE,
-						'source_message_id', $7::text
-					),
-					$8
+						'source_message_id', $10::text
+					)),
+					$11
 				)
 			`,
 				tenantID,
@@ -347,6 +536,9 @@ func (r *Repository) AddInboundMessage(
 				responseDraft.Engine,
 				responseDraft.Model,
 				responseDraft.UsedFallback,
+				string(responseDraft.FallbackReason),
+				groundingReferences,
+				salesBrief,
 				input.ClientMessageID,
 				now.Add(time.Microsecond),
 			); err != nil {

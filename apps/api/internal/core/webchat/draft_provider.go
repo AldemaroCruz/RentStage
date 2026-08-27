@@ -2,34 +2,152 @@ package webchat
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"unicode/utf8"
 )
 
 type DraftKind string
 
+type DraftMessageRole string
+
+type DraftFallbackReason string
+
+type DraftGroundingKind string
+
 const (
 	DraftKindInitial  DraftKind = "INITIAL"
 	DraftKindFollowUp DraftKind = "FOLLOW_UP"
+
+	DraftMessageRoleCustomer DraftMessageRole = "CUSTOMER"
+	DraftMessageRoleTeam     DraftMessageRole = "TEAM"
+
+	DraftFallbackReasonTimeout         DraftFallbackReason = "TIMEOUT"
+	DraftFallbackReasonProviderError   DraftFallbackReason = "PROVIDER_ERROR"
+	DraftFallbackReasonInvalidResponse DraftFallbackReason = "INVALID_RESPONSE"
+
+	DraftGroundingKindPackage  DraftGroundingKind = "PACKAGE"
+	DraftGroundingKindResource DraftGroundingKind = "RESOURCE"
+
+	MaximumDraftContextMessages = 12
+	MaximumDraftContextRunes    = 8000
+
+	MaximumDraftSalesPackages         = 8
+	MaximumDraftSalesResources        = 12
+	MaximumDraftSalesNameRunes        = 180
+	MaximumDraftSalesDescriptionRunes = 400
+	MaximumDraftSalesMetadataRunes    = 180
+	MaximumDraftSalesContextRunes     = 16000
+	MaximumDraftGroundingReferences   = 5
 )
 
 var ErrInvalidDraft = errors.New("web chat draft is invalid")
 
 type DraftRequest struct {
-	Kind            DraftKind
-	TenantName      string
-	TenantSlug      string
-	ContactName     string
-	CustomerMessage string
+	Kind             DraftKind
+	TenantName       string
+	TenantSlug       string
+	ContactName      string
+	CustomerMessage  string
+	PreviousMessages []DraftConversationMessage
+	SalesContext     DraftSalesContext
+}
+
+type DraftConversationMessage struct {
+	Role DraftMessageRole `json:"role"`
+	Body string           `json:"body"`
+}
+
+type DraftSalesContext struct {
+	Currency             string               `json:"currency"`
+	ShowPrices           bool                 `json:"show_prices"`
+	ShowResources        bool                 `json:"show_resources"`
+	QuoteRequestsEnabled bool                 `json:"quote_requests_enabled"`
+	Packages             []DraftSalesPackage  `json:"packages"`
+	Resources            []DraftSalesResource `json:"resources"`
+}
+
+type DraftSalesPackage struct {
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
+	GuestCapacity *int     `json:"guest_capacity,omitempty"`
+	Price         *float64 `json:"price,omitempty"`
+}
+
+type DraftSalesResource struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Category    string   `json:"category,omitempty"`
+	Type        string   `json:"type"`
+	PricingUnit string   `json:"pricing_unit"`
+	Price       *float64 `json:"price,omitempty"`
+}
+
+type DraftGroundingReference struct {
+	Kind DraftGroundingKind `json:"kind"`
+	Name string             `json:"name"`
 }
 
 type DraftResult struct {
-	Body         string
-	Engine       string
-	Model        string
-	UsedFallback bool
+	Body                string
+	Engine              string
+	Model               string
+	UsedFallback        bool
+	FallbackReason      DraftFallbackReason
+	GroundingReferences []DraftGroundingReference
+	SalesBrief          DraftSalesBrief
+}
+
+type DraftProviderFailure struct {
+	Reason DraftFallbackReason
+	err    error
+}
+
+func (e *DraftProviderFailure) Error() string {
+	return fmt.Sprintf(
+		"web chat draft provider failed (%s)",
+		e.Reason,
+	)
+}
+
+func (e *DraftProviderFailure) Unwrap() error {
+	return e.err
+}
+
+func NewDraftProviderFailure(
+	reason DraftFallbackReason,
+	err error,
+) error {
+	if !validDraftFallbackReason(reason) {
+		reason = DraftFallbackReasonProviderError
+	}
+	if err == nil {
+		err = ErrInvalidDraft
+	}
+
+	return &DraftProviderFailure{
+		Reason: reason,
+		err:    err,
+	}
+}
+
+func DraftFallbackReasonFromError(
+	err error,
+) DraftFallbackReason {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return DraftFallbackReasonTimeout
+	}
+
+	var providerFailure *DraftProviderFailure
+	if errors.As(err, &providerFailure) &&
+		validDraftFallbackReason(providerFailure.Reason) {
+		return providerFailure.Reason
+	}
+
+	return DraftFallbackReasonProviderError
 }
 
 type DraftProvider interface {
@@ -43,6 +161,378 @@ type RulesDraftProvider struct{}
 
 func NewRulesDraftProvider() *RulesDraftProvider {
 	return &RulesDraftProvider{}
+}
+
+func NormalizeDraftConversation(
+	messages []DraftConversationMessage,
+) ([]DraftConversationMessage, error) {
+	if len(messages) > MaximumDraftContextMessages {
+		return nil, fmt.Errorf(
+			"%w: conversation context exceeds %d messages",
+			ErrInvalidDraft,
+			MaximumDraftContextMessages,
+		)
+	}
+
+	normalized := make(
+		[]DraftConversationMessage,
+		0,
+		len(messages),
+	)
+	totalRunes := 0
+
+	for _, message := range messages {
+		message.Body = strings.TrimSpace(message.Body)
+
+		switch message.Role {
+		case DraftMessageRoleCustomer,
+			DraftMessageRoleTeam:
+		default:
+			return nil, fmt.Errorf(
+				"%w: unsupported conversation role %q",
+				ErrInvalidDraft,
+				message.Role,
+			)
+		}
+
+		messageRunes := utf8.RuneCountInString(message.Body)
+		if messageRunes == 0 ||
+			messageRunes > MaximumMessageLength {
+			return nil, fmt.Errorf(
+				"%w: invalid conversation message body",
+				ErrInvalidDraft,
+			)
+		}
+
+		totalRunes += messageRunes
+		if totalRunes > MaximumDraftContextRunes {
+			return nil, fmt.Errorf(
+				"%w: conversation context exceeds %d runes",
+				ErrInvalidDraft,
+				MaximumDraftContextRunes,
+			)
+		}
+
+		normalized = append(normalized, message)
+	}
+
+	return normalized, nil
+}
+
+func NormalizeDraftSalesContext(
+	context DraftSalesContext,
+) (DraftSalesContext, error) {
+	context.Currency = strings.ToUpper(
+		strings.TrimSpace(context.Currency),
+	)
+	if !validDraftCurrency(context.Currency) {
+		return DraftSalesContext{}, fmt.Errorf(
+			"%w: invalid sales context currency",
+			ErrInvalidDraft,
+		)
+	}
+	if len(context.Packages) > MaximumDraftSalesPackages {
+		return DraftSalesContext{}, fmt.Errorf(
+			"%w: sales context exceeds %d packages",
+			ErrInvalidDraft,
+			MaximumDraftSalesPackages,
+		)
+	}
+	if len(context.Resources) > MaximumDraftSalesResources {
+		return DraftSalesContext{}, fmt.Errorf(
+			"%w: sales context exceeds %d resources",
+			ErrInvalidDraft,
+			MaximumDraftSalesResources,
+		)
+	}
+	if !context.ShowResources && len(context.Resources) > 0 {
+		return DraftSalesContext{}, fmt.Errorf(
+			"%w: hidden resources cannot enter sales context",
+			ErrInvalidDraft,
+		)
+	}
+
+	normalizedPackages := make(
+		[]DraftSalesPackage,
+		0,
+		len(context.Packages),
+	)
+	normalizedResources := make(
+		[]DraftSalesResource,
+		0,
+		len(context.Resources),
+	)
+	totalRunes := utf8.RuneCountInString(context.Currency)
+
+	for _, item := range context.Packages {
+		item.Name = strings.TrimSpace(item.Name)
+		item.Description = strings.TrimSpace(item.Description)
+
+		if err := validateDraftSalesText(
+			item.Name,
+			item.Description,
+		); err != nil {
+			return DraftSalesContext{}, err
+		}
+		if item.GuestCapacity != nil && *item.GuestCapacity <= 0 {
+			return DraftSalesContext{}, fmt.Errorf(
+				"%w: invalid package guest capacity",
+				ErrInvalidDraft,
+			)
+		}
+		if err := validateDraftSalesPrice(
+			item.Price,
+			context.ShowPrices,
+		); err != nil {
+			return DraftSalesContext{}, err
+		}
+
+		totalRunes += utf8.RuneCountInString(item.Name)
+		totalRunes += utf8.RuneCountInString(item.Description)
+		normalizedPackages = append(normalizedPackages, item)
+	}
+
+	for _, item := range context.Resources {
+		item.Name = strings.TrimSpace(item.Name)
+		item.Description = strings.TrimSpace(item.Description)
+		item.Category = strings.TrimSpace(item.Category)
+		item.Type = strings.TrimSpace(item.Type)
+		item.PricingUnit = strings.TrimSpace(item.PricingUnit)
+
+		if err := validateDraftSalesText(
+			item.Name,
+			item.Description,
+		); err != nil {
+			return DraftSalesContext{}, err
+		}
+		if item.Type == "" || item.PricingUnit == "" {
+			return DraftSalesContext{}, fmt.Errorf(
+				"%w: invalid resource sales metadata",
+				ErrInvalidDraft,
+			)
+		}
+		if utf8.RuneCountInString(item.Category) >
+			MaximumDraftSalesMetadataRunes ||
+			utf8.RuneCountInString(item.Type) >
+				MaximumDraftSalesMetadataRunes ||
+			utf8.RuneCountInString(item.PricingUnit) >
+				MaximumDraftSalesMetadataRunes {
+			return DraftSalesContext{}, fmt.Errorf(
+				"%w: sales resource metadata is too long",
+				ErrInvalidDraft,
+			)
+		}
+		if err := validateDraftSalesPrice(
+			item.Price,
+			context.ShowPrices,
+		); err != nil {
+			return DraftSalesContext{}, err
+		}
+
+		totalRunes += utf8.RuneCountInString(item.Name)
+		totalRunes += utf8.RuneCountInString(item.Description)
+		totalRunes += utf8.RuneCountInString(item.Category)
+		totalRunes += utf8.RuneCountInString(item.Type)
+		totalRunes += utf8.RuneCountInString(item.PricingUnit)
+		normalizedResources = append(normalizedResources, item)
+	}
+
+	if totalRunes > MaximumDraftSalesContextRunes {
+		return DraftSalesContext{}, fmt.Errorf(
+			"%w: sales context exceeds %d runes",
+			ErrInvalidDraft,
+			MaximumDraftSalesContextRunes,
+		)
+	}
+
+	context.Packages = normalizedPackages
+	context.Resources = normalizedResources
+
+	return context, nil
+}
+
+func NormalizeDraftGroundingReferences(
+	references []DraftGroundingReference,
+	salesContext DraftSalesContext,
+) ([]DraftGroundingReference, error) {
+	if len(references) == 0 {
+		return []DraftGroundingReference{}, nil
+	}
+	if len(references) > MaximumDraftGroundingReferences {
+		return nil, fmt.Errorf(
+			"%w: draft exceeds %d grounding references",
+			ErrInvalidDraft,
+			MaximumDraftGroundingReferences,
+		)
+	}
+
+	normalizedContext, err := NormalizeDraftSalesContext(
+		salesContext,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	packages, err := draftGroundingNames(
+		normalizedContext.Packages,
+		func(item DraftSalesPackage) string { return item.Name },
+	)
+	if err != nil {
+		return nil, err
+	}
+	resources, err := draftGroundingNames(
+		normalizedContext.Resources,
+		func(item DraftSalesResource) string { return item.Name },
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	normalized := make(
+		[]DraftGroundingReference,
+		0,
+		len(references),
+	)
+	seen := make(map[string]struct{}, len(references))
+
+	for _, reference := range references {
+		reference.Name = strings.TrimSpace(reference.Name)
+		if reference.Name == "" ||
+			utf8.RuneCountInString(reference.Name) >
+				MaximumDraftSalesNameRunes {
+			return nil, fmt.Errorf(
+				"%w: invalid grounding reference name",
+				ErrInvalidDraft,
+			)
+		}
+
+		var allowed map[string]string
+		switch reference.Kind {
+		case DraftGroundingKindPackage:
+			allowed = packages
+		case DraftGroundingKindResource:
+			allowed = resources
+		default:
+			return nil, fmt.Errorf(
+				"%w: unsupported grounding reference kind %q",
+				ErrInvalidDraft,
+				reference.Kind,
+			)
+		}
+
+		canonicalName, ok := allowed[strings.ToLower(reference.Name)]
+		if !ok {
+			return nil, fmt.Errorf(
+				"%w: grounding reference is not in public catalog",
+				ErrInvalidDraft,
+			)
+		}
+
+		key := string(reference.Kind) + "\x00" +
+			strings.ToLower(canonicalName)
+		if _, duplicate := seen[key]; duplicate {
+			return nil, fmt.Errorf(
+				"%w: duplicate grounding reference",
+				ErrInvalidDraft,
+			)
+		}
+		seen[key] = struct{}{}
+
+		normalized = append(
+			normalized,
+			DraftGroundingReference{
+				Kind: reference.Kind,
+				Name: canonicalName,
+			},
+		)
+	}
+
+	return normalized, nil
+}
+
+func draftGroundingNames[T any](
+	items []T,
+	name func(T) string,
+) (map[string]string, error) {
+	result := make(map[string]string, len(items))
+	for _, item := range items {
+		canonicalName := strings.TrimSpace(name(item))
+		key := strings.ToLower(canonicalName)
+		if _, duplicate := result[key]; duplicate {
+			return nil, fmt.Errorf(
+				"%w: ambiguous public catalog reference",
+				ErrInvalidDraft,
+			)
+		}
+		result[key] = canonicalName
+	}
+	return result, nil
+}
+
+func encodeDraftGroundingReferences(
+	references []DraftGroundingReference,
+) (string, error) {
+	if references == nil {
+		references = []DraftGroundingReference{}
+	}
+
+	encoded, err := json.Marshal(references)
+	if err != nil {
+		return "", fmt.Errorf(
+			"encode web chat grounding references: %w",
+			err,
+		)
+	}
+	return string(encoded), nil
+}
+
+func validDraftCurrency(value string) bool {
+	if len(value) != 3 {
+		return false
+	}
+	for _, character := range value {
+		if character < 'A' || character > 'Z' {
+			return false
+		}
+	}
+	return true
+}
+
+func validateDraftSalesText(
+	name string,
+	description string,
+) error {
+	if name == "" || description == "" ||
+		utf8.RuneCountInString(name) >
+			MaximumDraftSalesNameRunes ||
+		utf8.RuneCountInString(description) >
+			MaximumDraftSalesDescriptionRunes {
+		return fmt.Errorf(
+			"%w: invalid sales context text",
+			ErrInvalidDraft,
+		)
+	}
+	return nil
+}
+
+func validateDraftSalesPrice(
+	price *float64,
+	showPrices bool,
+) error {
+	if !showPrices && price != nil {
+		return fmt.Errorf(
+			"%w: hidden prices cannot enter sales context",
+			ErrInvalidDraft,
+		)
+	}
+	if price != nil &&
+		(*price < 0 || math.IsNaN(*price) || math.IsInf(*price, 0)) {
+		return fmt.Errorf(
+			"%w: invalid sales context price",
+			ErrInvalidDraft,
+		)
+	}
+	return nil
 }
 
 func (*RulesDraftProvider) GenerateDraft(
@@ -65,9 +555,10 @@ func (*RulesDraftProvider) GenerateDraft(
 	}
 
 	return DraftResult{
-		Body:   body,
-		Engine: "WEB_CHAT_RULES",
-		Model:  "DETERMINISTIC_V1",
+		Body:       body,
+		Engine:     "WEB_CHAT_RULES",
+		Model:      "DETERMINISTIC_V1",
+		SalesBrief: emptyDraftSalesBrief(),
 	}, nil
 }
 
@@ -78,7 +569,9 @@ func normalizeDraft(result DraftResult) (DraftResult, error) {
 
 	if result.Body == "" ||
 		result.Engine == "" ||
-		result.Model == "" {
+		result.Model == "" ||
+		result.UsedFallback ||
+		result.FallbackReason != "" {
 		return DraftResult{}, ErrInvalidDraft
 	}
 
@@ -88,4 +581,17 @@ func normalizeDraft(result DraftResult) (DraftResult, error) {
 	}
 
 	return result, nil
+}
+
+func validDraftFallbackReason(
+	reason DraftFallbackReason,
+) bool {
+	switch reason {
+	case DraftFallbackReasonTimeout,
+		DraftFallbackReasonProviderError,
+		DraftFallbackReasonInvalidResponse:
+		return true
+	default:
+		return false
+	}
 }

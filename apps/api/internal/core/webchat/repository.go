@@ -236,6 +236,17 @@ func (r *Repository) CreateSession(
 	}
 
 	if strings.TrimSpace(responseDraft.Body) != "" {
+		groundingReferences, err := encodeDraftGroundingReferences(
+			responseDraft.GroundingReferences,
+		)
+		if err != nil {
+			return SessionView{}, err
+		}
+		salesBrief, err := encodeDraftSalesBrief(responseDraft.SalesBrief)
+		if err != nil {
+			return SessionView{}, err
+		}
+
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO assistant_messages (
 				tenant_id, conversation_id, direction, sender_type, provider,
@@ -243,14 +254,17 @@ func (r *Repository) CreateSession(
 			) VALUES (
 				$1, $2, 'OUTBOUND', 'ASSISTANT', 'WEB_CHAT',
 				$3, 'DRAFT',
-				jsonb_build_object(
+				jsonb_strip_nulls(jsonb_build_object(
 					'engine', $4::text,
 					'model', $5::text,
 					'used_fallback', $6::boolean,
+					'fallback_reason', NULLIF($7::text, ''),
+					'grounding_references', $8::jsonb,
+					'sales_brief', $9::jsonb,
 					'human_approval_required', TRUE,
-					'source_message_id', $7::text
-				),
-				$8
+					'source_message_id', $10::text
+				)),
+				$11
 			)
 		`,
 			configuration.TenantID,
@@ -259,6 +273,9 @@ func (r *Repository) CreateSession(
 			responseDraft.Engine,
 			responseDraft.Model,
 			responseDraft.UsedFallback,
+			string(responseDraft.FallbackReason),
+			groundingReferences,
+			salesBrief,
 			input.ClientMessageID,
 			now.Add(time.Microsecond),
 		); err != nil {

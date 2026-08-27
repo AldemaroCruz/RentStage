@@ -65,7 +65,7 @@ func TestLoadUsesSafeAssistantAIDefaults(t *testing.T) {
 			cfg.AssistantAIModel,
 		)
 	}
-	if cfg.AssistantAITimeout != 8*time.Second {
+	if cfg.AssistantAITimeout != 20*time.Second {
 		t.Fatalf(
 			"AssistantAITimeout = %s",
 			cfg.AssistantAITimeout,
