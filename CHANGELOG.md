@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.21.0 — Grounded sales copilot
+
+### Added
+
+- Adds a bounded, role-aware conversation window to initial and follow-up web-chat draft requests.
+- Adds a tenant-scoped catalog snapshot containing only published packages, visible resources, allowed prices, and public commercial settings.
+- Adds validated `PACKAGE` and `RESOURCE` grounding references with canonical catalog names and reviewer-only evidence cards.
+- Adds a structured private sales brief sourced from literal customer-message fragments, including missing fields and one suggested next question.
+
+### Safety and reliability
+
+- Treats customer, team, and catalog text as untrusted JSON data and strengthens the Vertex instruction boundary against embedded role and prompt-injection attempts.
+- Rejects invented, hidden, duplicate, malformed, or excessive catalog references and degrades invalid provider output to deterministic rules with `INVALID_RESPONSE`.
+- Rejects unverified availability, reservation, discount, payment, quote, order, price, currency, and guest-capacity claims before persistence.
+- Distinguishes `TIMEOUT`, `PROVIDER_ERROR`, and `INVALID_RESPONSE` in private metadata while clearing provider references and sales summaries from fallback drafts.
+- Preserves client-message idempotency, public-session isolation, private draft status, and mandatory human publication.
+
+### Interface and compatibility
+
+- Adds reviewer-only catalog evidence and conversation-summary cards to the assistant inbox, with independent scrolling and a viewport-bounded desktop layout.
+- Uses a 20-second AI timeout locally and in staging while keeping deterministic rules as the credential-free default.
+- Adds no database migration, public chat API change, dependency, secret, production deployment, autonomous quote, reservation, inventory, payment, or delivery action.
+
 ## 0.20.0 — AI-assisted conversation drafts
 
 ### Added
