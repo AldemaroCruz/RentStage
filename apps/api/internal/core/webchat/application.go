@@ -217,6 +217,12 @@ func (s *Service) generateDraft(
 					)
 			}
 			if normalizeErr == nil {
+				normalizeErr = ValidateDraftCommercialClaims(
+					normalized,
+					request,
+				)
+			}
+			if normalizeErr == nil {
 				return normalized, nil
 			}
 		}
