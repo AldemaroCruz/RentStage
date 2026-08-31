@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	firebase.google.com/go/v4 v4.21.0
 	github.com/jackc/pgx/v5 v5.10.0
-	google.golang.org/genai v1.67.0
+	google.golang.org/genai v1.70.0
 )
 
 require (
