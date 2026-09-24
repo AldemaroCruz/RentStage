@@ -216,7 +216,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - uses: docker/setup-buildx-action@v4.2.0
       - name: Build API image
-        uses: docker/build-push-action@v7.3.0
+        uses: docker/build-push-action@v7.4.0
         with:
           context: apps/api
           load: true
@@ -226,7 +226,7 @@ jobs:
             VCS_REF=${{ github.sha }}
             BUILD_DATE=github-run-${{ github.run_id }}
       - name: Build web image
-        uses: docker/build-push-action@v7.3.0
+        uses: docker/build-push-action@v7.4.0
         with:
           context: apps/web
           load: true
@@ -320,7 +320,7 @@ jobs:
           printf '%s' "$firebase_key" > "$RUNNER_TEMP/firebase-api-key"
       - id: build-api
         name: Build and push API
-        uses: docker/build-push-action@v7.3.0
+        uses: docker/build-push-action@v7.4.0
         with:
           context: apps/api
           push: true
